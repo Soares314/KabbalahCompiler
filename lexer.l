@@ -1,4 +1,5 @@
 %{
+#include "parser.tab.h"
 #include <stdio.h>
 %}
 
@@ -31,7 +32,11 @@
 . { printf("<erro,%s> ", yytext); }
 %%
 
-int main(void) {
-    yylex();
+    /*int main(void) {
+        yylex();
     return 0;
+}*/
+
+int yywrap(void) {
+    return 1;
 }
