@@ -18,16 +18,18 @@
 "foreach" { printf("<keyword,loop-foreach> "); }
 "while" { printf("<keyword,loop-while> "); }
 [a-zA-Z_][a-zA-Z0-9_]* { printf("<id,%s> ", yytext); }
-[-+]?[0-9]+(\.[0-9]+)?  { printf("<num,%s>", yytext); }
+[0-9]+      { yylval = atoi(yytext); return NUM; }
 "=" { printf("<atribuição,=> "); }
-"+" { printf("<op,+> "); }
-"-" { printf("<op,-> "); }
-"/" { printf("<op,/> "); }
-"*" { printf("<op,*> "); }
+"+" { return '+'; }
+"-" { return '-'; }
+"/" { return '/'; }
+"*" { return '*'; }
+"(" { return '('; }
+")" { return ')'; }
 ";" { printf("<delimitador,;> "); }
-"("    { printf("<delimitador, open parentheses>"); }
-")"    { printf("<delimitador, close parentheses>"); }
-[ \t\n] ; /* ignora espaços */
+
+[ \t] ;     /* ignora apenas espaços e tabs */
+\n    { return '\n'; } /* Devolve o Enter para o Bison saber que a conta acabou */
 "//".*    { printf("<comentário,%s> ", yytext); }
 . { printf("<erro,%s> ", yytext); }
 %%
