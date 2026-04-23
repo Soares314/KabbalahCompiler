@@ -54,14 +54,40 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    NUM = 258                      /* NUM  */
+    KW_DEFINE = 258,               /* KW_DEFINE  */
+    KW_RETURN = 259,               /* KW_RETURN  */
+    TYPE_VOID = 260,               /* TYPE_VOID  */
+    TYPE_INT = 261,                /* TYPE_INT  */
+    TYPE_CHAR = 262,               /* TYPE_CHAR  */
+    TYPE_FLOAT = 263,              /* TYPE_FLOAT  */
+    TYPE_LONG = 264,               /* TYPE_LONG  */
+    KW_ADD = 265,                  /* KW_ADD  */
+    KW_SIZEOF = 266,               /* KW_SIZEOF  */
+    KW_IF = 267,                   /* KW_IF  */
+    KW_FOR = 268,                  /* KW_FOR  */
+    KW_FOREACH = 269,              /* KW_FOREACH  */
+    KW_WHILE = 270,                /* KW_WHILE  */
+    ASSIGN = 271,                  /* ASSIGN  */
+    SEMICOLON = 272,               /* SEMICOLON  */
+    IDENTIFIER = 273,              /* IDENTIFIER  */
+    NUM = 274                      /* NUM  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+union YYSTYPE
+{
+#line 36 "parser.y"
+
+    int num;
+    char* str;
+
+#line 88 "parser.tab.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
