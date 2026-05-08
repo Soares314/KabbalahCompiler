@@ -79,10 +79,10 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 36 "parser.y"
+#line 53 "parser.y"
 
     int num;
-    char* str;
+    char* str; /* Armazena com * pois não se sabe o tamanho do char */
 
 #line 88 "parser.tab.h"
 

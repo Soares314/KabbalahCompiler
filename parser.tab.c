@@ -72,13 +72,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
 #include <windows.h>
 
 int yylex(void);
 void yyerror(const char *s);
 
-// --- INÍCIO DA TABELA DE SÍMBOLOS ---
+// --- Tabela de Símbolos ---
 struct Symbol {
     char name[50];
     char type[20];
@@ -99,9 +98,26 @@ void add_symbol(char* type, char* name) {
     symCount++;
     printf("Semântico: Variável '%s' do tipo '%s' salva na tabela.\n", name, type);
 }
-// --- FIM DA TABELA DE SÍMBOLOS ---
 
-#line 105 "parser.tab.c"
+
+// --- Codigo Intermediário ---
+int tempCount = 0;
+
+char* new_temp() {
+    char* temp = (char*)malloc(10);
+    sprintf(temp, "t%d", ++tempCount);
+    return temp;
+}
+
+void emit(char* result, char* op1, char* operator, char* op2) {
+    if (op2 == NULL) {
+        printf("Intermediário: %s = %s\n", result, op1);
+    } else {
+        printf("Intermediário: %s = %s %s %s\n", result, op1, operator, op2);
+    }
+}
+
+#line 121 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -544,7 +560,7 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int8 yyrline[] =
 {
-       0,    57,    57,    61,    62,    66,    69
+       0,    74,    74,    78,    79,    83,    89
 };
 #endif
 
@@ -1109,23 +1125,29 @@ yyreduce:
   switch (yyn)
     {
   case 5: /* statement: TYPE_INT IDENTIFIER ASSIGN NUM SEMICOLON  */
-#line 66 "parser.y"
+#line 83 "parser.y"
                                              {
         add_symbol("int", (yyvsp[-3].str));
+        char numStr[20];
+        sprintf(numStr, "%d", (yyvsp[-1].num));
+        emit((yyvsp[-3].str), numStr, NULL, NULL);
     }
-#line 1117 "parser.tab.c"
+#line 1136 "parser.tab.c"
     break;
 
   case 6: /* statement: IDENTIFIER '+' IDENTIFIER ASSIGN IDENTIFIER SEMICOLON  */
-#line 69 "parser.y"
+#line 89 "parser.y"
                                                           {
-        printf("Semântico: Operação lida com sucesso.\n");
+        char* temp = new_temp();
+        emit(temp, (yyvsp[-5].str), "+", (yyvsp[-3].str));
+        emit((yyvsp[-1].str), temp, NULL, NULL);
+        free(temp);
     }
-#line 1125 "parser.tab.c"
+#line 1147 "parser.tab.c"
     break;
 
 
-#line 1129 "parser.tab.c"
+#line 1151 "parser.tab.c"
 
       default: break;
     }
@@ -1318,7 +1340,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 74 "parser.y"
+#line 97 "parser.y"
  /* ================= SEGUNDO %%: CÓDIGO C FINAL ================= */
 
 void yyerror(const char *s) {

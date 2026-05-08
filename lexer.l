@@ -6,7 +6,7 @@
 %}
 
 %%
-    /* Palavras-chave agora retornam tokens definidos no Bison */
+    /* Palavras-chave retornam tokens definidos no Bison */
 "define"  { return KW_DEFINE; }
 "return"  { return KW_RETURN; }
 "void"    { return TYPE_VOID; }
@@ -43,11 +43,8 @@
 "(" { return '('; }
 ")" { return ')'; }
 
-    /* Ignora espaços em branco, tabs e quebras de linha */
-    /* Como sua linguagem usa ';' no final, não precisamos mais retornar o '\n' */
 [ \t\r\n]+  ; 
 
-    /* Ignora comentários */
 "//".* ; 
 
     /* Tratamento de Erros Léxicos */

@@ -7,7 +7,7 @@
 int yylex(void);
 void yyerror(const char *s);
 
-// --- INÍCIO DA TABELA DE SÍMBOLOS ---
+// --- Tabela de Símbolos ---
 struct Symbol {
     char name[50];
     char type[20];
@@ -28,13 +28,31 @@ void add_symbol(char* type, char* name) {
     symCount++;
     printf("Semântico: Variável '%s' do tipo '%s' salva na tabela.\n", name, type);
 }
-// --- FIM DA TABELA DE SÍMBOLOS ---
+
+
+// --- Codigo Intermediário ---
+int tempCount = 0;
+
+char* new_temp() {
+    char* temp = (char*)malloc(10);
+    sprintf(temp, "t%d", ++tempCount);
+    return temp;
+}
+
+void emit(char* result, char* op1, char* operator, char* op2) {
+    if (op2 == NULL) {
+        printf("Intermediário: %s = %s\n", result, op1);
+    } else {
+        printf("Intermediário: %s = %s %s %s\n", result, op1, operator, op2);
+    }
+}
 %}
+
 
 /* Tipos de dados que o Lexer pode enviar */
 %union {
     int num;
-    char* str;
+    char* str; /* Armazena com * pois não se sabe o tamanho do char */
 }
 
 /* Declaração de todos os tokens retornados pelo Lexer */
@@ -42,11 +60,11 @@ void add_symbol(char* type, char* name) {
 %token KW_ADD KW_SIZEOF KW_IF KW_FOR KW_FOREACH KW_WHILE
 %token ASSIGN SEMICOLON
 
-/* Tokens que carregam valores específicos (definidos no %union) */
+/* Tokens com valores específicos (definidos no %union) */
 %token <str> IDENTIFIER
 %token <num> NUM
 
-/* Precedência de operadores para evitar ambiguidades matemáticas */
+
 %left '+' '-'
 %left '*' '/'
 
@@ -64,9 +82,15 @@ statements:
 statement: 
     TYPE_INT IDENTIFIER ASSIGN NUM SEMICOLON {
         add_symbol("int", $2);
+        char numStr[20];
+        sprintf(numStr, "%d", $4);
+        emit($2, numStr, NULL, NULL);
     }
   | IDENTIFIER '+' IDENTIFIER ASSIGN IDENTIFIER SEMICOLON {
-        printf("Semântico: Operação lida com sucesso.\n");
+        char* temp = new_temp();
+        emit(temp, $1, "+", $3);
+        emit($5, temp, NULL, NULL);
+        free(temp);
     }
   ;
 

@@ -711,7 +711,7 @@ YY_DECL
 #line 8 "lexer.l"
 
 #line 10 "lexer.l"
-    /* Palavras-chave agora retornam tokens definidos no Bison */
+    /* Palavras-chave retornam tokens definidos no Bison */
 #line 715 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
@@ -893,32 +893,29 @@ YY_RULE_SETUP
 #line 45 "lexer.l"
 { return ')'; }
 	YY_BREAK
-/* Ignora espaços em branco, tabs e quebras de linha */
-/* Como sua linguagem usa ';' no final, não precisamos mais retornar o '\n' */
 case 24:
 /* rule 24 can match eol */
 YY_RULE_SETUP
-#line 49 "lexer.l"
+#line 47 "lexer.l"
 ; 
 	YY_BREAK
-/* Ignora comentários */
 case 25:
 YY_RULE_SETUP
-#line 52 "lexer.l"
+#line 49 "lexer.l"
 ; 
 	YY_BREAK
 /* Tratamento de Erros Léxicos */
 case 26:
 YY_RULE_SETUP
-#line 55 "lexer.l"
+#line 52 "lexer.l"
 { printf("Erro Lexico: Caractere não reconhecido '%s'\n", yytext); }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 56 "lexer.l"
+#line 53 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 921 "lex.yy.c"
+#line 918 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1923,7 +1920,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 56 "lexer.l"
+#line 53 "lexer.l"
 
 
 int yywrap(void) {
