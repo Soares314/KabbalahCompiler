@@ -31,16 +31,18 @@ void add_symbol(char* type, char* name) {
 
 // --- AST ---
 typedef struct ASTNode {
-    char value[50];        // valor do nó: nome da variável, número ou operador
-    char type[20];         // tipo semântico: "int", "op", "assign", etc
-    struct ASTNode* left;  // filho esquerdo
-    struct ASTNode* right; // filho direito
+    char value[50];
+    char type[20];
+    struct ASTNode* left;
+    struct ASTNode* right;
+    char code[50]; // guarda o nome da temporária ou valor para o código intermediário
 } ASTNode;
 
 ASTNode* new_node(char* value, char* type, ASTNode* left, ASTNode* right) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     strcpy(node->value, value);
     strcpy(node->type, type);
+    strcpy(node->code, "");
     node->left  = left;
     node->right = right;
     return node;
@@ -82,6 +84,7 @@ void emit(char* result, char* op1, char* op, char* op2) {
 %union {
     int num;
     char* str;
+    struct ASTNode* node;
 }
 
 %token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
@@ -90,6 +93,8 @@ void emit(char* result, char* op1, char* op, char* op2) {
 
 %token <str> IDENTIFIER
 %token <num> NUM
+
+%type <node> expr
 
 %left '+' '-'
 %left '*' '/'
@@ -106,49 +111,68 @@ statements:
   ;
 
 statement:
-    TYPE_INT IDENTIFIER ASSIGN NUM SEMICOLON {
-        // Tabela de símbolos
+    TYPE_INT IDENTIFIER ASSIGN expr SEMICOLON {
         add_symbol("int", $2);
 
-        // Monta a AST:  ASSIGN
-        //              /      \
-        //        IDENTIFIER   NUM
-        char numStr[20];
-        sprintf(numStr, "%d", $4);
-        ASTNode* id_node  = new_node($2,     "identifier", NULL, NULL);
-        ASTNode* num_node = new_node(numStr, "int",        NULL, NULL);
-        ASTNode* root     = new_node("=",    "assign",     id_node, num_node);
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL);
+        ASTNode* root    = new_node("=", "assign", id_node, $4);
 
-        printf("\nAST da declaração '%s = %s':\n", $2, numStr);
+        printf("\nAST da declaração '%s':\n", $2);
         print_ast(root, 0);
         free_ast(root);
 
-        // Código intermediário
-        emit($2, numStr, NULL, NULL);
+        emit($2, $4->code, NULL, NULL);
         printf("\n");
     }
-  | IDENTIFIER '+' IDENTIFIER ASSIGN IDENTIFIER SEMICOLON {
-        // Monta a AST:    ASSIGN
-        //                /      \
-        //               +        z
-        //              / \
-        //             y   x
-        ASTNode* left_id  = new_node($1, "identifier", NULL, NULL);
-        ASTNode* right_id = new_node($3, "identifier", NULL, NULL);
-        ASTNode* plus     = new_node("+", "op",        left_id, right_id);
-        ASTNode* result   = new_node($5, "identifier", NULL, NULL);
-        ASTNode* root     = new_node("=", "assign",    result, plus);
+  ;
 
-        printf("\nAST da operação '%s + %s = %s':\n", $1, $3, $5);
-        print_ast(root, 0);
-        free_ast(root);
-
-        // Código intermediário
+expr:
+    expr '+' expr {
+        ASTNode* node = new_node("+", "op", $1, $3);
         char* temp = new_temp();
-        emit(temp, $1, "+", $3);
-        emit($5, temp, NULL, NULL);
+        emit(temp, $1->code, "+", $3->code);
+        strcpy(node->code, temp);
         free(temp);
-        printf("\n");
+        $$ = node;
+    }
+  | expr '-' expr {
+        ASTNode* node = new_node("-", "op", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, "-", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr '*' expr {
+        ASTNode* node = new_node("*", "op", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, "*", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr '/' expr {
+        ASTNode* node = new_node("/", "op", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, "/", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | '(' expr ')' {
+        $$ = $2;
+    }
+  | IDENTIFIER {
+        ASTNode* node = new_node($1, "identifier", NULL, NULL);
+        strcpy(node->code, $1);
+        $$ = node;
+    }
+  | NUM {
+        char numStr[20];
+        sprintf(numStr, "%d", $1);
+        ASTNode* node = new_node(numStr, "int", NULL, NULL);
+        strcpy(node->code, numStr);
+        $$ = node;
     }
   ;
 
