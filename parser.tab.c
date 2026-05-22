@@ -77,7 +77,7 @@
 int yylex(void);
 void yyerror(const char *s);
 
-// --- Tabela de Símbolos ---
+// --- TABELA DE SÍMBOLOS ---
 struct Symbol {
     char name[50];
     char type[20];
@@ -99,8 +99,39 @@ void add_symbol(char* type, char* name) {
     printf("Semântico: Variável '%s' do tipo '%s' salva na tabela.\n", name, type);
 }
 
+// --- AST ---
+typedef struct ASTNode {
+    char value[50];        // valor do nó: nome da variável, número ou operador
+    char type[20];         // tipo semântico: "int", "op", "assign", etc
+    struct ASTNode* left;  // filho esquerdo
+    struct ASTNode* right; // filho direito
+} ASTNode;
 
-// --- Codigo Intermediário ---
+ASTNode* new_node(char* value, char* type, ASTNode* left, ASTNode* right) {
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    strcpy(node->value, value);
+    strcpy(node->type, type);
+    node->left  = left;
+    node->right = right;
+    return node;
+}
+
+void print_ast(ASTNode* node, int level) {
+    if (node == NULL) return;
+    for (int i = 0; i < level; i++) printf("  ");
+    printf("[%s] %s\n", node->type, node->value);
+    print_ast(node->left,  level + 1);
+    print_ast(node->right, level + 1);
+}
+
+void free_ast(ASTNode* node) {
+    if (node == NULL) return;
+    free_ast(node->left);
+    free_ast(node->right);
+    free(node);
+}
+
+// --- CÓDIGO INTERMEDIÁRIO ---
 int tempCount = 0;
 
 char* new_temp() {
@@ -109,15 +140,15 @@ char* new_temp() {
     return temp;
 }
 
-void emit(char* result, char* op1, char* operator, char* op2) {
+void emit(char* result, char* op1, char* op, char* op2) {
     if (op2 == NULL) {
         printf("Intermediário: %s = %s\n", result, op1);
     } else {
-        printf("Intermediário: %s = %s %s %s\n", result, op1, operator, op2);
+        printf("Intermediário: %s = %s %s %s\n", result, op1, op, op2);
     }
 }
 
-#line 121 "parser.tab.c"
+#line 152 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -558,9 +589,9 @@ static const yytype_int8 yytranslate[] =
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_int8 yyrline[] =
+static const yytype_uint8 yyrline[] =
 {
-       0,    74,    74,    78,    79,    83,    89
+       0,   100,   100,   104,   105,   109,   130
 };
 #endif
 
@@ -1125,29 +1156,61 @@ yyreduce:
   switch (yyn)
     {
   case 5: /* statement: TYPE_INT IDENTIFIER ASSIGN NUM SEMICOLON  */
-#line 83 "parser.y"
+#line 109 "parser.y"
                                              {
+        // Tabela de símbolos
         add_symbol("int", (yyvsp[-3].str));
+
+        // Monta a AST:  ASSIGN
+        //              /      \
+        //        IDENTIFIER   NUM
         char numStr[20];
         sprintf(numStr, "%d", (yyvsp[-1].num));
+        ASTNode* id_node  = new_node((yyvsp[-3].str),     "identifier", NULL, NULL);
+        ASTNode* num_node = new_node(numStr, "int",        NULL, NULL);
+        ASTNode* root     = new_node("=",    "assign",     id_node, num_node);
+
+        printf("\nAST da declaração '%s = %s':\n", (yyvsp[-3].str), numStr);
+        print_ast(root, 0);
+        free_ast(root);
+
+        // Código intermediário
         emit((yyvsp[-3].str), numStr, NULL, NULL);
+        printf("\n");
     }
-#line 1136 "parser.tab.c"
+#line 1182 "parser.tab.c"
     break;
 
   case 6: /* statement: IDENTIFIER '+' IDENTIFIER ASSIGN IDENTIFIER SEMICOLON  */
-#line 89 "parser.y"
+#line 130 "parser.y"
                                                           {
+        // Monta a AST:    ASSIGN
+        //                /      \
+        //               +        z
+        //              / \
+        //             y   x
+        ASTNode* left_id  = new_node((yyvsp[-5].str), "identifier", NULL, NULL);
+        ASTNode* right_id = new_node((yyvsp[-3].str), "identifier", NULL, NULL);
+        ASTNode* plus     = new_node("+", "op",        left_id, right_id);
+        ASTNode* result   = new_node((yyvsp[-1].str), "identifier", NULL, NULL);
+        ASTNode* root     = new_node("=", "assign",    result, plus);
+
+        printf("\nAST da operação '%s + %s = %s':\n", (yyvsp[-5].str), (yyvsp[-3].str), (yyvsp[-1].str));
+        print_ast(root, 0);
+        free_ast(root);
+
+        // Código intermediário
         char* temp = new_temp();
         emit(temp, (yyvsp[-5].str), "+", (yyvsp[-3].str));
         emit((yyvsp[-1].str), temp, NULL, NULL);
         free(temp);
+        printf("\n");
     }
-#line 1147 "parser.tab.c"
+#line 1210 "parser.tab.c"
     break;
 
 
-#line 1151 "parser.tab.c"
+#line 1214 "parser.tab.c"
 
       default: break;
     }
@@ -1340,8 +1403,8 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 97 "parser.y"
- /* ================= SEGUNDO %%: CÓDIGO C FINAL ================= */
+#line 155 "parser.y"
+ /* ================= CÓDIGO C FINAL ================= */
 
 void yyerror(const char *s) {
     fprintf(stderr, "Erro Sintático: %s\n", s);
@@ -1349,9 +1412,9 @@ void yyerror(const char *s) {
 
 int main(void) {
     SetConsoleOutputCP(CP_UTF8);
-    printf("Iniciando a compilação...\n");
+    printf("Iniciando a compilação...\n\n");
     if (yyparse() == 0) {
-        printf("\nCompilação concluída com sucesso! Nenhuma falha sintática ou semântica.\n");
+        printf("Compilação concluída com sucesso!\n");
     }
     return 0;
 }
