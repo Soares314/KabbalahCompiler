@@ -50,9 +50,19 @@ cat entrada.txt | ./meu_compilador
 ./meu_compilador < entrada.txt # Forma alternativa nativa do Linux
 ```
 
+Caso seja necessário, rode os seguintes comandos para deleção dos arquivos intermediários e garantir uma recompilação limpa
+
+```bash
+rm -f lex.yy.c parser.tab.c meu_compilador
+bison -d parser.y
+flex lexer.l
+gcc parser.tab.c lex.yy.c -o meu_compilador
+./meu_compilador < entrada.txt
+```
+
 ## 🐋 Para rodar no container
 
-Na pasta do projeto já está presente o arquivo <code>Dockerfile</code>, basta criar a imagem com:`
+Na pasta do projeto já está presente o arquivo <code>Dockerfile</code>, basta criar a imagem com:
 
 ```powershell
 docker build -t ambiente-compiladores .

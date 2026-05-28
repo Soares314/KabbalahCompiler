@@ -14,9 +14,9 @@
 "char"    { return TYPE_CHAR; }
 "float"   { return TYPE_FLOAT; }
 "long"    { return TYPE_LONG; }
-"add"     { return KW_ADD; }
 "sizeof"  { return KW_SIZEOF; }
 "if"      { return KW_IF; }
+"else"    { return KW_ELSE; }
 "for"     { return KW_FOR; }
 "foreach" { return KW_FOREACH; }
 "while"   { return KW_WHILE; }
@@ -42,6 +42,11 @@
 "*" { return '*'; }
 "(" { return '('; }
 ")" { return ')'; }
+"{" { return '{'; }
+"}" { return '}'; }
+"=="      { return OP_EQ; }
+"<"       { return OP_LT; }
+">"       { return OP_GT; }
 
 [ \t\r\n]+  ; 
 

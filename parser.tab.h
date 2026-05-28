@@ -61,16 +61,19 @@ extern int yydebug;
     TYPE_CHAR = 262,               /* TYPE_CHAR  */
     TYPE_FLOAT = 263,              /* TYPE_FLOAT  */
     TYPE_LONG = 264,               /* TYPE_LONG  */
-    KW_ADD = 265,                  /* KW_ADD  */
-    KW_SIZEOF = 266,               /* KW_SIZEOF  */
-    KW_IF = 267,                   /* KW_IF  */
+    KW_SIZEOF = 265,               /* KW_SIZEOF  */
+    KW_IF = 266,                   /* KW_IF  */
+    KW_ELSE = 267,                 /* KW_ELSE  */
     KW_FOR = 268,                  /* KW_FOR  */
     KW_FOREACH = 269,              /* KW_FOREACH  */
     KW_WHILE = 270,                /* KW_WHILE  */
     ASSIGN = 271,                  /* ASSIGN  */
     SEMICOLON = 272,               /* SEMICOLON  */
-    IDENTIFIER = 273,              /* IDENTIFIER  */
-    NUM = 274                      /* NUM  */
+    OP_EQ = 273,                   /* OP_EQ  */
+    OP_LT = 274,                   /* OP_LT  */
+    OP_GT = 275,                   /* OP_GT  */
+    IDENTIFIER = 276,              /* IDENTIFIER  */
+    NUM = 277                      /* NUM  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -79,13 +82,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 84 "parser.y"
+#line 92 "parser.y"
 
     int num;
     char* str;
     struct ASTNode* node;
 
-#line 89 "parser.tab.h"
+#line 92 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

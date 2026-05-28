@@ -1,0 +1,6 @@
+int x = 2;
+if (x > 5) {
+    int y = 1;
+} else {
+    int z = 2;
+}
