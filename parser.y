@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 // #include <windows.h>
+FILE* out_file;
 
 int yylex(void);
 void yyerror(const char *s);
@@ -81,12 +82,26 @@ char* new_label() {
     return lbl;
 }
 
+// ----- ANOTA CÓDIGO INTERMEDIÁRIO NO ARQUIVO 'saida.tac' -----
 void emit(char* result, char* op1, char* op, char* op2) {
     if (op2 == NULL) {
-        printf("Intermediário: %s = %s\n", result, op1);
+        fprintf(out_file, "%s = %s\n", result, op1);
     } else {
-        printf("Intermediário: %s = %s %s %s\n", result, op1, op, op2);
+        fprintf(out_file, "%s = %s %s %s\n", result, op1, op, op2);
     }
+}
+
+// Saltos If-ELSE
+void emit_if_false(char* cond, char* label) {
+    fprintf(out_file, "ifFalse %s goto %s\n", cond, label);
+}
+
+void emit_goto(char* label) {
+    fprintf(out_file, "goto %s\n", label);
+}
+
+void emit_label(char* label) {
+    fprintf(out_file, "label %s\n", label);
 }
 %}
 
@@ -131,7 +146,7 @@ if_prefix:
         print_ast($3, 0);
         free_ast($3);
         
-        printf("Intermediário: ifFalse %s goto %s\n", $3->code, l_false);
+        emit_if_false($3->code, l_false);
         $$ = l_false;
     }
     ;
@@ -152,16 +167,16 @@ statement:
 
     | if_prefix '{' statements '}' {
         // IF sem ELSE
-        printf("Intermediário: label %s\n\n", $1);
+        emit_label($1);
     }
 
     | if_prefix '{' statements '}' KW_ELSE {
         // IF com ELSE
         $<str>$ = new_label();
-        printf("Intermediário: goto %s\n", $<str>$);
-        printf("Intermediário: label %s\n", $1);
+        emit_goto($<str>$);
+        emit_label($1);
     } '{' statements '}' {
-        printf("Intermediário: label %s\n\n", $<str>6);
+        emit_label($<str>6);
     }
 
     | TYPE_FLOAT IDENTIFIER ASSIGN expr SEMICOLON {
@@ -254,9 +269,20 @@ void yyerror(const char *s) {
 
 int main(void) {
     // SetConsoleOutputCP(CP_UTF8);
+    // Abre o arquivo para escrita
+    out_file = fopen("saida.tac", "w");
+
+    if (out_file == NULL) {
+        printf("Erro: Não foi possível criar o arquivo de saída.\n");
+        return 1;
+    }
+
     printf("Iniciando a compilação...\n\n");
     if (yyparse() == 0) {
         printf("Compilação concluída com sucesso!\n");
+        printf("O código intermediário foi salvo em 'saida.tac'.\n");
     }
+
+    fclose(out_file);
     return 0;
 }

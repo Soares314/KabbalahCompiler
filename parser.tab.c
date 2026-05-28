@@ -73,11 +73,13 @@
 #include <stdlib.h>
 #include <string.h>
 // #include <windows.h>
+FILE* out_file;
 
 int yylex(void);
 void yyerror(const char *s);
 
 // --- TABELA DE SÍMBOLOS ---
+// TODO: Adicionar escopo de variáveis
 struct Symbol {
     char name[50];
     char type[20];
@@ -150,15 +152,29 @@ char* new_label() {
     return lbl;
 }
 
+// ----- ANOTA CÓDIGO INTERMEDIÁRIO NO ARQUIVO 'saida.tac' -----
 void emit(char* result, char* op1, char* op, char* op2) {
     if (op2 == NULL) {
-        printf("Intermediário: %s = %s\n", result, op1);
+        fprintf(out_file, "%s = %s\n", result, op1);
     } else {
-        printf("Intermediário: %s = %s %s %s\n", result, op1, op, op2);
+        fprintf(out_file, "%s = %s %s %s\n", result, op1, op, op2);
     }
 }
 
-#line 162 "parser.tab.c"
+// Saltos If-ELSE
+void emit_if_false(char* cond, char* label) {
+    fprintf(out_file, "ifFalse %s goto %s\n", cond, label);
+}
+
+void emit_goto(char* label) {
+    fprintf(out_file, "goto %s\n", label);
+}
+
+void emit_label(char* label) {
+    fprintf(out_file, "label %s\n", label);
+}
+
+#line 178 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -612,9 +628,9 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,   116,   116,   120,   121,   126,   139,   152,   157,   157,
-     166,   172,   180,   188,   199,   207,   215,   223,   231,   234,
-     239
+       0,   132,   132,   136,   137,   142,   155,   168,   173,   173,
+     182,   188,   196,   204,   215,   223,   231,   239,   247,   250,
+     255
 };
 #endif
 
@@ -1204,7 +1220,7 @@ yyreduce:
   switch (yyn)
     {
   case 5: /* if_prefix: KW_IF '(' condicao ')'  */
-#line 126 "parser.y"
+#line 142 "parser.y"
                            {
         char* l_false = new_label();
         
@@ -1212,14 +1228,14 @@ yyreduce:
         print_ast((yyvsp[-1].node), 0);
         free_ast((yyvsp[-1].node));
         
-        printf("Intermediário: ifFalse %s goto %s\n", (yyvsp[-1].node)->code, l_false);
+        emit_if_false((yyvsp[-1].node)->code, l_false);
         (yyval.str) = l_false;
     }
-#line 1219 "parser.tab.c"
+#line 1235 "parser.tab.c"
     break;
 
   case 6: /* statement: TYPE_INT IDENTIFIER ASSIGN expr SEMICOLON  */
-#line 139 "parser.y"
+#line 155 "parser.y"
                                               {
         add_symbol("int", (yyvsp[-3].str));
         ASTNode* id_node = new_node((yyvsp[-3].str), "identifier", NULL, NULL);
@@ -1232,47 +1248,47 @@ yyreduce:
         emit((yyvsp[-3].str), (yyvsp[-1].node)->code, NULL, NULL);
         printf("\n");
     }
-#line 1236 "parser.tab.c"
+#line 1252 "parser.tab.c"
     break;
 
   case 7: /* statement: if_prefix '{' statements '}'  */
-#line 152 "parser.y"
+#line 168 "parser.y"
                                    {
         // IF sem ELSE
-        printf("Intermediário: label %s\n\n", (yyvsp[-3].str));
+        emit_label((yyvsp[-3].str));
     }
-#line 1245 "parser.tab.c"
+#line 1261 "parser.tab.c"
     break;
 
   case 8: /* @1: %empty  */
-#line 157 "parser.y"
+#line 173 "parser.y"
                                            {
         // IF com ELSE
         (yyval.str) = new_label();
-        printf("Intermediário: goto %s\n", (yyval.str));
-        printf("Intermediário: label %s\n", (yyvsp[-4].str));
-    }
-#line 1256 "parser.tab.c"
-    break;
-
-  case 9: /* statement: if_prefix '{' statements '}' KW_ELSE @1 '{' statements '}'  */
-#line 162 "parser.y"
-                         {
-        printf("Intermediário: label %s\n\n", (yyvsp[-3].str));
-    }
-#line 1264 "parser.tab.c"
-    break;
-
-  case 10: /* statement: TYPE_FLOAT IDENTIFIER ASSIGN expr SEMICOLON  */
-#line 166 "parser.y"
-                                                  {
-        // Seu futuro float aqui
+        emit_goto((yyval.str));
+        emit_label((yyvsp[-4].str));
     }
 #line 1272 "parser.tab.c"
     break;
 
+  case 9: /* statement: if_prefix '{' statements '}' KW_ELSE @1 '{' statements '}'  */
+#line 178 "parser.y"
+                         {
+        emit_label((yyvsp[-3].str));
+    }
+#line 1280 "parser.tab.c"
+    break;
+
+  case 10: /* statement: TYPE_FLOAT IDENTIFIER ASSIGN expr SEMICOLON  */
+#line 182 "parser.y"
+                                                  {
+        // Seu futuro float aqui
+    }
+#line 1288 "parser.tab.c"
+    break;
+
   case 11: /* condicao: expr OP_EQ expr  */
-#line 172 "parser.y"
+#line 188 "parser.y"
                     {
         ASTNode* node = new_node("==", "relacional", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1281,11 +1297,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1285 "parser.tab.c"
+#line 1301 "parser.tab.c"
     break;
 
   case 12: /* condicao: expr OP_LT expr  */
-#line 180 "parser.y"
+#line 196 "parser.y"
                     {
         ASTNode* node = new_node("<", "relacional", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1294,11 +1310,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1298 "parser.tab.c"
+#line 1314 "parser.tab.c"
     break;
 
   case 13: /* condicao: expr OP_GT expr  */
-#line 188 "parser.y"
+#line 204 "parser.y"
                     {
         ASTNode* node = new_node(">", "relacional", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1307,11 +1323,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1311 "parser.tab.c"
+#line 1327 "parser.tab.c"
     break;
 
   case 14: /* expr: expr '+' expr  */
-#line 199 "parser.y"
+#line 215 "parser.y"
                   {
         ASTNode* node = new_node("+", "op", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1320,11 +1336,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1324 "parser.tab.c"
+#line 1340 "parser.tab.c"
     break;
 
   case 15: /* expr: expr '-' expr  */
-#line 207 "parser.y"
+#line 223 "parser.y"
                   {
         ASTNode* node = new_node("-", "op", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1333,11 +1349,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1337 "parser.tab.c"
+#line 1353 "parser.tab.c"
     break;
 
   case 16: /* expr: expr '*' expr  */
-#line 215 "parser.y"
+#line 231 "parser.y"
                   {
         ASTNode* node = new_node("*", "op", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1346,11 +1362,11 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1350 "parser.tab.c"
+#line 1366 "parser.tab.c"
     break;
 
   case 17: /* expr: expr '/' expr  */
-#line 223 "parser.y"
+#line 239 "parser.y"
                   {
         ASTNode* node = new_node("/", "op", (yyvsp[-2].node), (yyvsp[0].node));
         char* temp = new_temp();
@@ -1359,29 +1375,29 @@ yyreduce:
         free(temp);
         (yyval.node) = node;
     }
-#line 1363 "parser.tab.c"
+#line 1379 "parser.tab.c"
     break;
 
   case 18: /* expr: '(' expr ')'  */
-#line 231 "parser.y"
+#line 247 "parser.y"
                  {
         (yyval.node) = (yyvsp[-1].node);
     }
-#line 1371 "parser.tab.c"
+#line 1387 "parser.tab.c"
     break;
 
   case 19: /* expr: IDENTIFIER  */
-#line 234 "parser.y"
+#line 250 "parser.y"
                {
         ASTNode* node = new_node((yyvsp[0].str), "identifier", NULL, NULL);
         strcpy(node->code, (yyvsp[0].str));
         (yyval.node) = node;
     }
-#line 1381 "parser.tab.c"
+#line 1397 "parser.tab.c"
     break;
 
   case 20: /* expr: NUM  */
-#line 239 "parser.y"
+#line 255 "parser.y"
         {
         char numStr[20];
         sprintf(numStr, "%d", (yyvsp[0].num));
@@ -1389,11 +1405,11 @@ yyreduce:
         strcpy(node->code, numStr);
         (yyval.node) = node;
     }
-#line 1393 "parser.tab.c"
+#line 1409 "parser.tab.c"
     break;
 
 
-#line 1397 "parser.tab.c"
+#line 1413 "parser.tab.c"
 
       default: break;
     }
@@ -1586,7 +1602,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 248 "parser.y"
+#line 264 "parser.y"
  /* ================= CÓDIGO C FINAL ================= */
 
 void yyerror(const char *s) {
@@ -1595,9 +1611,20 @@ void yyerror(const char *s) {
 
 int main(void) {
     // SetConsoleOutputCP(CP_UTF8);
+    // Abre o arquivo para escrita
+    out_file = fopen("saida.tac", "w");
+
+    if (out_file == NULL) {
+        printf("Erro: Não foi possível criar o arquivo de saída.\n");
+        return 1;
+    }
+
     printf("Iniciando a compilação...\n\n");
     if (yyparse() == 0) {
         printf("Compilação concluída com sucesso!\n");
+        printf("O código intermediário foi salvo em 'saida.tac'.\n");
     }
+
+    fclose(out_file);
     return 0;
 }
