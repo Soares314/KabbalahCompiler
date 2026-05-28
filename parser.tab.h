@@ -54,14 +54,44 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    NUM = 258                      /* NUM  */
+    KW_DEFINE = 258,               /* KW_DEFINE  */
+    KW_RETURN = 259,               /* KW_RETURN  */
+    TYPE_VOID = 260,               /* TYPE_VOID  */
+    TYPE_INT = 261,                /* TYPE_INT  */
+    TYPE_CHAR = 262,               /* TYPE_CHAR  */
+    TYPE_FLOAT = 263,              /* TYPE_FLOAT  */
+    TYPE_LONG = 264,               /* TYPE_LONG  */
+    KW_SIZEOF = 265,               /* KW_SIZEOF  */
+    KW_IF = 266,                   /* KW_IF  */
+    KW_ELSE = 267,                 /* KW_ELSE  */
+    KW_FOR = 268,                  /* KW_FOR  */
+    KW_FOREACH = 269,              /* KW_FOREACH  */
+    KW_WHILE = 270,                /* KW_WHILE  */
+    ASSIGN = 271,                  /* ASSIGN  */
+    SEMICOLON = 272,               /* SEMICOLON  */
+    OP_EQ = 273,                   /* OP_EQ  */
+    OP_LT = 274,                   /* OP_LT  */
+    OP_GT = 275,                   /* OP_GT  */
+    IDENTIFIER = 276,              /* IDENTIFIER  */
+    NUM = 277                      /* NUM  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+union YYSTYPE
+{
+#line 108 "parser.y"
+
+    int num;
+    char* str;
+    struct ASTNode* node;
+
+#line 92 "parser.tab.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif

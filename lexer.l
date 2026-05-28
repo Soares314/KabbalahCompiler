@@ -1,41 +1,60 @@
 %{
-#include "parser.tab.h"
+#include "parser.tab.h" // Arquivo gerado pelo Bison com a definição dos tokens
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 %}
 
 %%
-"define" { printf("<keyword,function> "); }
-"return" { printf("<keyword,return> "); }
-"void" { printf("<keyword,void> "); }
-"int" { printf("<keyword,int> "); }
-"char" { printf("<keyword,char> "); }
-"float" { printf("<keyword,float> "); }
-"long" { printf("<keyword,long> "); }
-"add" { printf("<keyword,add-to-array> "); }
-"sizeof" { printf("<keyword,size-array> "); }
-"if" { printf("<keyword,conditional> "); }
-"for" { printf("<keyword,loop-for> "); }
-"foreach" { printf("<keyword,loop-foreach> "); }
-"while" { printf("<keyword,loop-while> "); }
-[a-zA-Z_][a-zA-Z0-9_]* { printf("<id,%s> ", yytext); }
-[-+]?[0-9]+(\.[0-9]+)?  { printf("<num,%s>", yytext); }
-"=" { printf("<atribuição,=> "); }
-"+" { printf("<op,+> "); }
-"-" { printf("<op,-> "); }
-"/" { printf("<op,/> "); }
-"*" { printf("<op,*> "); }
-";" { printf("<delimitador,;> "); }
-"("    { printf("<delimitador, open parentheses>"); }
-")"    { printf("<delimitador, close parentheses>"); }
-[ \t\n] ; /* ignora espaços */
-"//".*    { printf("<comentário,%s> ", yytext); }
-. { printf("<erro,%s> ", yytext); }
-%%
+    /* Palavras-chave retornam tokens definidos no Bison */
+"define"  { return KW_DEFINE; }
+"return"  { return KW_RETURN; }
+"void"    { return TYPE_VOID; }
+"int"     { return TYPE_INT; }
+"char"    { return TYPE_CHAR; }
+"float"   { return TYPE_FLOAT; }
+"long"    { return TYPE_LONG; }
+"sizeof"  { return KW_SIZEOF; }
+"if"      { return KW_IF; }
+"else"    { return KW_ELSE; }
+"for"     { return KW_FOR; }
+"foreach" { return KW_FOREACH; }
+"while"   { return KW_WHILE; }
 
-    /*int main(void) {
-        yylex();
-    return 0;
-}*/
+    /* Identificadores: salvamos o nome da variável em yylval.str */
+[a-zA-Z_][a-zA-Z0-9_]* { 
+    yylval.str = strdup(yytext); 
+    return IDENTIFIER; 
+}
+
+    /* Números: salvamos o valor numérico em yylval.num */
+[0-9]+ { 
+    yylval.num = atoi(yytext); 
+    return NUM; 
+}
+
+    /* Operadores e Pontuação */
+"=" { return ASSIGN; }
+";" { return SEMICOLON; }
+"+" { return '+'; }
+"-" { return '-'; }
+"/" { return '/'; }
+"*" { return '*'; }
+"(" { return '('; }
+")" { return ')'; }
+"{" { return '{'; }
+"}" { return '}'; }
+"=="      { return OP_EQ; }
+"<"       { return OP_LT; }
+">"       { return OP_GT; }
+
+[ \t\r\n]+  ; 
+
+"//".* ; 
+
+    /* Tratamento de Erros Léxicos */
+. { printf("Erro Lexico: Caractere não reconhecido '%s'\n", yytext); }
+%%
 
 int yywrap(void) {
     return 1;
