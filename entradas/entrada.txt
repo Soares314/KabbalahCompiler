@@ -7,4 +7,4 @@ int k = (a + (b - b)) * 1;
 int m = (a + b) * (c - d) + (a + b) * (e - f);
 int n = (p * 8) + (p * 2);
 int s = ((x + y) * 2) - ((x + y) * 1);
-int s = ((a * 8) + (a * 2)) - (a * 4);
+int asas = ((a * 8) + (a * 2)) - (a * 4);

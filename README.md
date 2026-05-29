@@ -22,6 +22,7 @@ O software deve atender aos requisitos de todas as fases cruciais do processo de
 - Lexer: Flex v2.6
 - Parser: Bison v3.8
 - Gerador de código intermediário: gcc v11.4
+- Otimizador: script autoral, em Python v3.10.12
 
 ## 💻 Comandos
 

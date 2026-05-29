@@ -1,0 +1,7 @@
+x = 5
+y = x
+t1 = y + 2
+t2 = t1 * 0
+t3 = t1 + 3
+z = t3
+ifFalse z goto L1
