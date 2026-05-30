@@ -1,12 +1,12 @@
 %{
-#include "parser.tab.h" // Arquivo gerado pelo Bison com a definição dos tokens
+#include "parser.tab.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 %}
 
 %%
-    /* Palavras-chave retornam tokens definidos no Bison */
+    /* Palavras-chave */
 "define"  { return KW_DEFINE; }
 "return"  { return KW_RETURN; }
 "void"    { return TYPE_VOID; }
@@ -21,7 +21,7 @@
 "foreach" { return KW_FOREACH; }
 "while"   { return KW_WHILE; }
 
-    /* Identificadores: salvamos o nome da variável em yylval.str */
+    /* Identificadores (salvos em yylval.str) */
 [a-zA-Z_][a-zA-Z0-9_]* { 
     yylval.str = strdup(yytext); 
     return IDENTIFIER; 
@@ -34,22 +34,21 @@
 }
 
     /* Operadores e Pontuação */
-"=" { return ASSIGN; }
-";" { return SEMICOLON; }
-"+" { return '+'; }
-"-" { return '-'; }
-"/" { return '/'; }
-"*" { return '*'; }
-"(" { return '('; }
-")" { return ')'; }
-"{" { return '{'; }
-"}" { return '}'; }
-"=="      { return OP_EQ; }
-"<"       { return OP_LT; }
-">"       { return OP_GT; }
+"="   { return ASSIGN; }
+";"   { return SEMICOLON; }
+"+"   { return '+'; }
+"-"   { return '-'; }
+"/"   { return '/'; }
+"*"   { return '*'; }
+"("   { return '('; }
+")"   { return ')'; }
+"{"   { return '{'; }
+"}"   { return '}'; }
+"=="  { return OP_EQ; }
+"<"   { return OP_LT; }
+">"   { return OP_GT; }
 
 [ \t\r\n]+  ; 
-
 "//".* ; 
 
     /* Tratamento de Erros Léxicos */
