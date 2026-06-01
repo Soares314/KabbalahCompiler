@@ -4,34 +4,12 @@
 #include <stddef.h>
 #include <string.h>
 #include "ast.h"
+#include "t_simbolos.h"
 // #include <windows.h>
 FILE* out_file;
 
 int yylex(void);
 void yyerror(const char *s);
-
-// --- TABELA DE SÍMBOLOS ---
-// TODO: Adicionar escopo de variáveis
-struct Symbol {
-    char name[50];
-    char type[20];
-};
-
-struct Symbol symTable[100];
-int symCount = 0;
-
-void add_symbol(char* type, char* name) {
-    for(int i = 0; i < symCount; i++) {
-        if(strcmp(symTable[i].name, name) == 0) {
-            printf("Erro Semântico: Variável '%s' já declarada!\n", name);
-            exit(1);
-        }
-    }
-    strcpy(symTable[symCount].type, type);
-    strcpy(symTable[symCount].name, name);
-    symCount++;
-    printf("Semântico: Variável '%s' do tipo '%s' salva na tabela.\n", name, type);
-}
 
 // --- CÓDIGO INTERMEDIÁRIO ---
 int tempCount = 0;
@@ -131,6 +109,22 @@ statement:
 
         emit($2, $4->code, NULL, NULL);
         printf("\n");
+    }
+
+    | IDENTIFIER ASSIGN expr SEMICOLON {
+        // --- ATRIBUIÇÃO ---
+        if (!symbol_exists($1)) {
+            printf("Erro Semântico: Variável '%s' não declarada!\n", $1);
+            exit(1);
+        }
+        ASTNode* id_node = new_node($1, "identifier", NULL, NULL);
+        ASTNode* root    = new_node("=", "assign", id_node, $3);
+
+        printf("\nAST da atribuição '%s':\n", $1);
+        print_ast(root, 0);
+        free_ast(root);
+
+        emit($1, $3->code, NULL, NULL); 
     }
 
     | if_prefix '{' statements '}' {

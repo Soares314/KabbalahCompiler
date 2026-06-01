@@ -57,7 +57,7 @@ Caso seja necessário, rode os seguintes comandos para deleção dos arquivos in
 rm -f build/lex.yy.c build/parser.tab.c build/compilador
 bison -d -o build/parser.tab.c src/frontend/parser.y
 flex -o build/lex.yy.c src/frontend/lexer.l
-gcc -I src/frontend src/frontend/ast.c build/lex.yy.c build/parser.tab.c -o build/compilador
+gcc -I src/frontend src/frontend/ast.c src/frontend/t_simbolos.c build/lex.yy.c build/parser.tab.c -o build/compilador
 ./run.sh
 ```
 
