@@ -1,0 +1,331 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
+#include "ast.h"
+#include "t_simbolos.h"
+// #include <windows.h>
+FILE* out_file;
+
+int yylex(void);
+void yyerror(const char *s);
+
+// --- CÓDIGO INTERMEDIÁRIO ---
+int tempCount = 0;
+int labelCount = 0;
+
+char* new_temp() {
+    char* temp = (char*)malloc(10);
+    sprintf(temp, "t%d", ++tempCount);
+    return temp;
+}
+
+/* Cria labels para fazer o JUMP de condicionais */ 
+char* new_label() {
+    char* lbl = (char*)malloc(10);
+    sprintf(lbl, "L%d", ++labelCount);
+    return lbl;
+}
+
+// ----- ANOTA CÓDIGO INTERMEDIÁRIO NO ARQUIVO 'saida.tac' -----
+void emit(char* result, char* op1, char* op, char* op2) {
+    if (op2 == NULL) {
+        fprintf(out_file, "%s = %s\n", result, op1);
+    } else {
+        fprintf(out_file, "%s = %s %s %s\n", result, op1, op, op2);
+    }
+}
+
+// Saltos If-ELSE
+void emit_if_false(char* cond, char* label) {
+    fprintf(out_file, "ifFalse %s goto %s\n", cond, label);
+}
+
+void emit_goto(char* label) {
+    fprintf(out_file, "goto %s\n", label);
+}
+
+void emit_label(char* label) {
+    fprintf(out_file, "label %s\n", label);
+}
+%}
+
+%union {
+    int num;
+    char* str;
+    struct ASTNode* node;
+}
+
+%token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
+%token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH KW_WHILE
+%token ASSIGN SEMICOLON
+%token OP_EQ OP_LT OP_GT
+
+%token <str> IDENTIFIER
+%token <num> NUM
+%token <str> NUM_FLOAT
+
+%type <node> expr
+%type <str> tipo       /* Regra genérica de tipo para declaração */
+%type <node> condicao  /* A condição vai retornar um nó da AST */
+%type <str> if_prefix  /* Vai retornar o Label L1/L2 como string */
+
+%left '+' '-'
+%left '*' '/'
+
+%% /* ================= REGRAS ================= */
+
+program:
+    statements
+    ;
+
+statements:
+    statement
+  | statements statement
+  ;
+
+/* ----- IF e ELSE ----- */
+if_prefix:
+    KW_IF '(' condicao ')' {
+        char* l_false = new_label();
+        
+        printf("\nAST da Condição:\n");
+        print_ast($3, 0);
+        free_ast($3);
+        
+        emit_if_false($3->code, l_false);
+        $$ = l_false;
+    }
+    ;
+
+tipo:
+    TYPE_INT   { $$ = "int"; }
+  | TYPE_FLOAT { $$ = "float"; }
+  | TYPE_CHAR  { $$ = "char"; }
+  | TYPE_LONG  { $$ = "long"; }
+  /* Adicione outros tipos aqui no futuro */
+  ;
+
+statement:
+    // --- DECLARAÇÕES ---
+    tipo IDENTIFIER ASSIGN expr SEMICOLON {
+        // Checa se o tipo da declaração é compatível ao valor passado
+        // TODO: Colocar hierarquia de tipos entre 'int' < 'long'
+        if (strcmp($1, $4->data_type) != 0) {
+            printf("Erro Semântico: Tipo '%s' não é compatível com '%s'.\n", $4->data_type, $1);
+            exit(1);
+        }
+        add_symbol($1, $2);
+
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL);
+        ASTNode* root    = new_node("=", "assign", id_node, $4);
+
+        printf("\nAST da declaração '%s':\n", $2);
+        print_ast(root, 0);
+        free_ast(root);
+
+        emit($2, $4->code, NULL, NULL);
+        printf("\n");
+    }
+
+    // --- ATRIBUIÇÃO ---
+    | IDENTIFIER ASSIGN expr SEMICOLON {
+        Symbol* sym = get_symbol($1);
+        if (sym == NULL) {
+            printf("Erro Semântico: Variável '%s' não declarada!\n", $1);
+            exit(1);
+        }
+        if (strcmp(sym->type, $3->data_type) != 0) {
+            printf("Erro Semântico: Impossível converter '%s' para '%s'!\n", $3->data_type, sym->type);
+            exit(1);
+        }
+        ASTNode* id_node = new_node($1, "identifier", NULL, NULL);
+        ASTNode* root    = new_node("=", "assign", id_node, $3);
+
+        printf("\nAST da atribuição '%s':\n", $1);
+        print_ast(root, 0);
+        free_ast(root);
+
+        emit($1, $3->code, NULL, NULL); 
+    }
+
+    | if_prefix '{' statements '}' {
+        // IF sem ELSE
+        emit_label($1);
+    }
+
+    | if_prefix '{' statements '}' KW_ELSE {
+        // IF com ELSE
+        $<str>$ = new_label();
+        emit_goto($<str>$);
+        emit_label($1);
+    } '{' statements '}' {
+        emit_label($<str>6);
+    }
+
+    ;
+
+condicao:
+    expr OP_EQ expr {
+        ASTNode* node = new_node("==", "relacional", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, "==", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr OP_LT expr {
+        ASTNode* node = new_node("<", "relacional", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, "<", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr OP_GT expr {
+        ASTNode* node = new_node(">", "relacional", $1, $3);
+        char* temp = new_temp();
+        emit(temp, $1->code, ">", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  ;
+
+expr:
+    expr '+' expr {
+        // --- CHECAGEM DE TIPO ---
+        if (strcmp($1->data_type, $3->data_type) != 0) {
+            printf("Erro Semântico: Tipos incompatíveis para soma ('%s' + '%s').\n", $1->data_type, $3->data_type);
+            exit(1);
+        }
+        // TODO: Implementar regras para operações com float
+        if (strcmp($1->data_type, "float") == 0 || strcmp($3->data_type, "float") == 0) {
+            printf("Erro: Operações com float ainda não são suportadas!\n");
+            exit(1);
+        }
+        
+        ASTNode* node = new_node("+", "op", $1, $3);
+        strcpy(node->data_type, $1->data_type); // Propaga o tipo para cima
+        
+        char* temp = new_temp();
+        emit(temp, $1->code, "+", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr '-' expr {
+        if (strcmp($1->data_type, $3->data_type) != 0) {
+            printf("Erro Semântico: Tipos incompatíveis para subtração ('%s' - '%s').\n", $1->data_type, $3->data_type);
+            exit(1);
+        }
+        if (strcmp($1->data_type, "float") == 0) {
+            printf("Erro: Operações com float ainda não são suportadas!\n");
+            exit(1);
+        }
+        
+        ASTNode* node = new_node("-", "op", $1, $3);
+        strcpy(node->data_type, $1->data_type);
+        
+        char* temp = new_temp();
+        emit(temp, $1->code, "-", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr '*' expr {
+        if (strcmp($1->data_type, $3->data_type) != 0) {
+            printf("Erro Semântico: Tipos incompatíveis para multiplicação ('%s' * '%s').\n", $1->data_type, $3->data_type);
+            exit(1);
+        }
+        if (strcmp($1->data_type, "float") == 0) {
+            printf("Erro: Operações com float ainda não são suportadas!\n");
+            exit(1);
+        }
+        
+        ASTNode* node = new_node("*", "op", $1, $3);
+        strcpy(node->data_type, $1->data_type);
+        
+        char* temp = new_temp();
+        emit(temp, $1->code, "*", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr '/' expr {
+        if (strcmp($1->data_type, $3->data_type) != 0) {
+            printf("Erro Semântico: Tipos incompatíveis para divisão ('%s' / '%s').\n", $1->data_type, $3->data_type);
+            exit(1);
+        }
+        if (strcmp($1->data_type, "float") == 0) {
+            printf("Erro: Operações com float ainda não são suportadas!\n");
+            exit(1);
+        }
+        
+        ASTNode* node = new_node("/", "op", $1, $3);
+        strcpy(node->data_type, $1->data_type);
+        
+        char* temp = new_temp();
+        emit(temp, $1->code, "/", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | '(' expr ')' {
+        $$ = $2; // Os parênteses apenas repassam o nó inteiro, já com o tipo correto
+    }
+  | IDENTIFIER {
+        // Busca o símbolo na tabela
+        Symbol* sym = get_symbol($1);
+        if (sym == NULL) {
+            printf("Erro Semântico: Variável '%s' não declarada antes do uso!\n", $1);
+            exit(1);
+        }
+        
+        ASTNode* node = new_node($1, "identifier", NULL, NULL);
+        strcpy(node->data_type, sym->type); // Pega o tipo ("int") direto da tabela!
+        strcpy(node->code, $1);
+        $$ = node;
+    }
+  | NUM {
+        char numStr[20];
+        sprintf(numStr, "%d", $1);
+        ASTNode* node = new_node(numStr, "literal", NULL, NULL);
+        strcpy(node->data_type, "int"); // Literais puros são sempre inteiros
+        strcpy(node->code, numStr);
+        $$ = node;
+    }
+  | NUM_FLOAT {
+        ASTNode* node = new_node($1, "literal", NULL, NULL);
+        strcpy(node->data_type, "float"); 
+        strcpy(node->code, $1);
+        $$ = node;
+    }
+  ;
+
+%% /* ================= CÓDIGO C FINAL ================= */
+
+void yyerror(const char *s) {
+    fprintf(stderr, "Erro Sintático: %s\n", s);
+}
+
+int main(void) {
+    // SetConsoleOutputCP(CP_UTF8);
+    // Abre o arquivo para escrita
+    out_file = fopen("saida.tac", "w");
+
+    if (out_file == NULL) {
+        printf("Erro: Não foi possível criar o arquivo de saída.\n");
+        return 1;
+    }
+
+    printf("Iniciando a compilação...\n\n");
+    if (yyparse() == 0) {
+        printf("Compilação concluída com sucesso!\n");
+        printf("O código intermediário foi salvo em 'saida.tac'.\n");
+    }
+
+    fclose(out_file);
+    return 0;
+}
