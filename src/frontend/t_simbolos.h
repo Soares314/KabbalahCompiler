@@ -8,6 +8,6 @@ typedef struct Symbol {
 } Symbol;
 
 void add_symbol(char* , char*);
-int symbol_exists(char*);
+Symbol* get_symbol(char* name);
 
 #endif

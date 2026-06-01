@@ -9,17 +9,19 @@
     /* Palavras-chave */
 "define"  { return KW_DEFINE; }
 "return"  { return KW_RETURN; }
-"void"    { return TYPE_VOID; }
-"int"     { return TYPE_INT; }
-"char"    { return TYPE_CHAR; }
-"float"   { return TYPE_FLOAT; }
-"long"    { return TYPE_LONG; }
 "sizeof"  { return KW_SIZEOF; }
 "if"      { return KW_IF; }
 "else"    { return KW_ELSE; }
 "for"     { return KW_FOR; }
 "foreach" { return KW_FOREACH; }
 "while"   { return KW_WHILE; }
+
+    /* Palavras-chave, para tipos */
+"int"     { return TYPE_INT; }
+"char"    { return TYPE_CHAR; }
+"float"   { return TYPE_FLOAT; }
+"long"    { return TYPE_LONG; }
+"void"    { return TYPE_VOID; }
 
     /* Identificadores (salvos em yylval.str) */
 [a-zA-Z_][a-zA-Z0-9_]* { 
@@ -31,6 +33,10 @@
 [0-9]+ { 
     yylval.num = atoi(yytext); 
     return NUM; 
+}
+[0-9]+\.[0-9]+ { 
+    yylval.str = strdup(yytext); 
+    return NUM_FLOAT; 
 }
 
     /* Operadores e Pontuação */

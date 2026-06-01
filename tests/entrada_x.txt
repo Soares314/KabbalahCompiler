@@ -1,3 +1,9 @@
 int x = 98;
-x = 8;
-x = 3231.321;
+float decimal = 23.2;
+x = x + 2;
+
+if (x == 100) {
+    int z = 43;
+} 
+
+// int decimal_falso = 23.2;

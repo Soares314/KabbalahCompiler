@@ -4,6 +4,7 @@
 typedef struct ASTNode {
     char *value;
     char *type;
+    char data_type[20];
     struct ASTNode *left;
     struct ASTNode *right;
     char code[50];

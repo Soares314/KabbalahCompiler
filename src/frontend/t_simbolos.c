@@ -20,9 +20,11 @@ void add_symbol(char* type, char* name) {
     printf("Semântico: Variável '%s' do tipo '%s' salva na tabela.\n", name, type);
 }
 
-int symbol_exists(char* name) {
+Symbol* get_symbol(char* name) {
     for(int i = 0; i < symCount; i++) {
-        if(strcmp(symTable[i].name, name) == 0) return 1;
+        if(strcmp(symTable[i].name, name) == 0) {
+            return &symTable[i];
+        }
     }
-    return 0;
+    return NULL;
 }
