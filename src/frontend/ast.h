@@ -7,10 +7,11 @@ typedef struct ASTNode {
     char data_type[20];
     struct ASTNode *left;
     struct ASTNode *right;
-    char code[50];
+    char code[100];
+    int scope_level;
 } ASTNode;
 
-ASTNode * new_node(char *, char *, ASTNode *, ASTNode *);
+ASTNode * new_node(char *, char *, ASTNode *, ASTNode *, int);
 void print_ast(ASTNode *, int);
 void free_ast(ASTNode *);
 

@@ -93,7 +93,8 @@ meu-compilador/
 │   ├── frontend/           # Parte em C (Flex e Bison)
 │   │   ├── lexer.l         # Arquivo do Flex
 │   │   ├── parser.y        # Arquivo do Bison
-│   │   └── ast.h / ast.c   # Definição da AST
+│   │   |── ast.h / ast.c   # Definição da AST
+│   │   └── t_simbolos.h / t_simbolos.c   # Definição da tabela de símbolos
 │   │
 │   └── backend/            # Parte em Python
 │       ├── main_backend.py # Script principal do backend

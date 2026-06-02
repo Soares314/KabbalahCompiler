@@ -3,16 +3,7 @@
 #include <string.h>
 #include "ast.h"
 
-// ASTNode* new_node(char* value, char* type, ASTNode* left, ASTNode* right) {
-//     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
-//     strcpy(node->value, value);
-//     strcpy(node->type, type);
-//     strcpy(node->code, "");
-//     node->left  = left;
-//     node->right = right;
-//     return node;
-// }
-ASTNode *new_node(char *value, char *type, ASTNode *left, ASTNode *right) {
+ASTNode *new_node(char *value, char *type, ASTNode *left, ASTNode *right, int scope) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     if (node == NULL) {
         fprintf(stderr, "Erro: Falha ao alocar memória para o nó.\n");
@@ -22,6 +13,7 @@ ASTNode *new_node(char *value, char *type, ASTNode *left, ASTNode *right) {
     node->value = value ? strdup(value) : NULL;
     node->type  = type  ? strdup(type)  : NULL;
     strcpy(node->code, "");
+    node->scope_level = scope;
     
     node->left  = left;
     node->right = right;

@@ -85,6 +85,21 @@ statements:
   | statements statement
   ;
 
+/* --- Marcadores para o Bison --- */
+tipo:
+    TYPE_INT   { $$ = "int"; }
+  | TYPE_FLOAT { $$ = "float"; }
+  | TYPE_CHAR  { $$ = "char"; }
+  | TYPE_LONG  { $$ = "long"; }
+  ;
+
+abre_escopo:  { enter_scope(); } ;
+fecha_escopo: { exit_scope();  } ;
+
+block:
+    '{' abre_escopo statements '}' fecha_escopo
+  ;
+
 /* ----- IF e ELSE ----- */
 if_prefix:
     KW_IF '(' condicao ')' {
@@ -96,16 +111,9 @@ if_prefix:
         
         emit_if_false($3->code, l_false);
         $$ = l_false;
+        printf("\n");
     }
     ;
-
-tipo:
-    TYPE_INT   { $$ = "int"; }
-  | TYPE_FLOAT { $$ = "float"; }
-  | TYPE_CHAR  { $$ = "char"; }
-  | TYPE_LONG  { $$ = "long"; }
-  /* Adicione outros tipos aqui no futuro */
-  ;
 
 statement:
     // --- DECLARAÇÕES ---
@@ -118,14 +126,17 @@ statement:
         }
         add_symbol($1, $2);
 
-        ASTNode* id_node = new_node($2, "identifier", NULL, NULL);
-        ASTNode* root    = new_node("=", "assign", id_node, $4);
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, $4, get_scope());
 
         printf("\nAST da declaração '%s':\n", $2);
         print_ast(root, 0);
         free_ast(root);
 
-        emit($2, $4->code, NULL, NULL);
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", $2, get_scope());
+
+        emit(nome_com_escopo, $4->code, NULL, NULL);
         printf("\n");
     }
 
@@ -140,35 +151,42 @@ statement:
             printf("Erro Semântico: Impossível converter '%s' para '%s'!\n", $3->data_type, sym->type);
             exit(1);
         }
-        ASTNode* id_node = new_node($1, "identifier", NULL, NULL);
-        ASTNode* root    = new_node("=", "assign", id_node, $3);
+        ASTNode* id_node = new_node($1, "identifier", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, $3, get_scope());
 
         printf("\nAST da atribuição '%s':\n", $1);
         print_ast(root, 0);
         free_ast(root);
 
-        emit($1, $3->code, NULL, NULL); 
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", sym->name, sym->scope_level);
+
+        emit(nome_com_escopo, $3->code, NULL, NULL); 
+        printf("\n");
     }
 
-    | if_prefix '{' statements '}' {
-        // IF sem ELSE
+    // --- IF sem ELSE ---
+    | if_prefix block {
         emit_label($1);
     }
 
-    | if_prefix '{' statements '}' KW_ELSE {
-        // IF com ELSE
-        $<str>$ = new_label();
-        emit_goto($<str>$);
+    // --- IF COM ELSE ---
+    | if_prefix block KW_ELSE {
+        // label de FIM para o IF não invadir o ELSE
+        char* label_fim = new_label();
+        emit_goto(label_fim);
         emit_label($1);
-    } '{' statements '}' {
-        emit_label($<str>6);
+
+        $<str>$ = label_fim;
+    } block {
+        emit_label($<str>4);
     }
 
     ;
 
 condicao:
     expr OP_EQ expr {
-        ASTNode* node = new_node("==", "relacional", $1, $3);
+        ASTNode* node = new_node("==", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
         emit(temp, $1->code, "==", $3->code);
         strcpy(node->code, temp);
@@ -176,7 +194,7 @@ condicao:
         $$ = node;
     }
   | expr OP_LT expr {
-        ASTNode* node = new_node("<", "relacional", $1, $3);
+        ASTNode* node = new_node("<", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
         emit(temp, $1->code, "<", $3->code);
         strcpy(node->code, temp);
@@ -184,7 +202,7 @@ condicao:
         $$ = node;
     }
   | expr OP_GT expr {
-        ASTNode* node = new_node(">", "relacional", $1, $3);
+        ASTNode* node = new_node(">", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
         emit(temp, $1->code, ">", $3->code);
         strcpy(node->code, temp);
@@ -206,9 +224,8 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("+", "op", $1, $3);
+        ASTNode* node = new_node("+", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type); // Propaga o tipo para cima
-        
         char* temp = new_temp();
         emit(temp, $1->code, "+", $3->code);
         strcpy(node->code, temp);
@@ -225,7 +242,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("-", "op", $1, $3);
+        ASTNode* node = new_node("-", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -244,7 +261,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("*", "op", $1, $3);
+        ASTNode* node = new_node("*", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -263,7 +280,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("/", "op", $1, $3);
+        ASTNode* node = new_node("/", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -283,21 +300,23 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node($1, "identifier", NULL, NULL);
+        ASTNode* node = new_node($1, "identifier", NULL, NULL, get_scope());
         strcpy(node->data_type, sym->type); // Pega o tipo ("int") direto da tabela!
-        strcpy(node->code, $1);
+
+        // SALVA O ESCOPO JUNTO AO NOME DO NÓ
+        sprintf(node->code, "%s_%d", sym->name, sym->scope_level);
         $$ = node;
     }
   | NUM {
         char numStr[20];
         sprintf(numStr, "%d", $1);
-        ASTNode* node = new_node(numStr, "literal", NULL, NULL);
+        ASTNode* node = new_node(numStr, "literal", NULL, NULL, get_scope());
         strcpy(node->data_type, "int"); // Literais puros são sempre inteiros
         strcpy(node->code, numStr);
         $$ = node;
     }
   | NUM_FLOAT {
-        ASTNode* node = new_node($1, "literal", NULL, NULL);
+        ASTNode* node = new_node($1, "literal", NULL, NULL, get_scope());
         strcpy(node->data_type, "float"); 
         strcpy(node->code, $1);
         $$ = node;
