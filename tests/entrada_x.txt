@@ -1,9 +1,14 @@
 int x = 98;
+int r = 5;
 float decimal = 23.2;
 x = x + 2;
 
 if (x == 100) {
     int z = 43;
 } 
+
+while(r > 1) {
+    r = r - 1;
+}
 
 // int decimal_falso = 23.2;

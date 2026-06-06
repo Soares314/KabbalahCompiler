@@ -37,7 +37,7 @@ void emit(char* result, char* op1, char* op, char* op2) {
     }
 }
 
-// Saltos If-ELSE
+// Saltos If-ELSE e While
 void emit_if_false(char* cond, char* label) {
     fprintf(out_file, "ifFalse %s goto %s\n", cond, label);
 }
@@ -58,18 +58,20 @@ void emit_label(char* label) {
 }
 
 %token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
-%token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH KW_WHILE
+%token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH
 %token ASSIGN SEMICOLON
 %token OP_EQ OP_LT OP_GT
 
 %token <str> IDENTIFIER
 %token <num> NUM
 %token <str> NUM_FLOAT
+%token <str> KW_WHILE
 
 %type <node> expr
 %type <str> tipo       /* Regra genérica de tipo para declaração */
 %type <node> condicao  /* A condição vai retornar um nó da AST */
 %type <str> if_prefix  /* Vai retornar o Label L1/L2 como string */
+%type <node> loop_prefix
 
 %left '+' '-'
 %left '*' '/'
@@ -96,6 +98,21 @@ if_prefix:
         
         emit_if_false($3->code, l_false);
         $$ = l_false;
+    }
+    ;
+
+loop_prefix:
+    KW_WHILE '(' condicao ')' {
+        ASTNode* node_break = new_node(new_label(), "break", NULL, NULL);
+        ASTNode* node_continue = new_node(new_label(), "continue", NULL, NULL);
+
+        $$ = new_node("while", "while", node_break, node_continue);
+        
+        printf("\nAST de Loop:\n");
+        print_ast($3, 0);
+
+        emit_label(node_continue->value);
+        emit_if_false($3->code, node_break->value);
     }
     ;
 
@@ -164,6 +181,11 @@ statement:
         emit_label($<str>6);
     }
 
+    | loop_prefix '{' statements '}' {
+        emit_goto($1->right->value);
+        emit_label($1->left->value);
+    }
+
     ;
 
 condicao:
@@ -185,6 +207,8 @@ condicao:
     }
   | expr OP_GT expr {
         ASTNode* node = new_node(">", "relacional", $1, $3);
+        print_ast(node, 0);
+
         char* temp = new_temp();
         emit(temp, $1->code, ">", $3->code);
         strcpy(node->code, temp);
