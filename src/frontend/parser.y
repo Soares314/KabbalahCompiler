@@ -11,6 +11,21 @@ FILE* out_file;
 int yylex(void);
 void yyerror(const char *s);
 
+// --- CONTROLE DE ESCOPO LOOP ---
+char loop_break_stack[20][20];    // Guarda os labels de fim (break)
+char loop_continue_stack[20][20]; // Guarda os labels de topo (continue)
+int loop_stack_top = -1;
+
+void push_loop(char* label_break, char* label_continue) {
+    loop_stack_top++;
+    strcpy(loop_break_stack[loop_stack_top], label_break);
+    strcpy(loop_continue_stack[loop_stack_top], label_continue);
+}
+
+void pop_loop() {
+    loop_stack_top--;
+}
+
 // --- CÓDIGO INTERMEDIÁRIO ---
 int tempCount = 0;
 int labelCount = 0;
@@ -59,6 +74,7 @@ void emit_label(char* label) {
 
 %token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
 %token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH
+%token KW_BREAK KW_CONTINUE
 %token ASSIGN SEMICOLON
 %token OP_EQ OP_LT OP_GT
 
@@ -87,6 +103,21 @@ statements:
   | statements statement
   ;
 
+/* --- Marcadores para o Bison --- */
+tipo:
+    TYPE_INT   { $$ = "int"; }
+  | TYPE_FLOAT { $$ = "float"; }
+  | TYPE_CHAR  { $$ = "char"; }
+  | TYPE_LONG  { $$ = "long"; }
+  ;
+
+abre_escopo:  { enter_scope(); } ;
+fecha_escopo: { exit_scope();  } ;
+
+block:
+    '{' abre_escopo statements '}' fecha_escopo
+  ;
+
 /* ----- IF e ELSE ----- */
 if_prefix:
     KW_IF '(' condicao ')' {
@@ -98,31 +129,36 @@ if_prefix:
         
         emit_if_false($3->code, l_false);
         $$ = l_false;
+        printf("\n");
+    }
+    ;
+
+// Emite o label Antes da condição
+while_start:
+    KW_WHILE '(' {
+        char* label_topo = new_label();
+        emit_label(label_topo);
+        $<str>$ = label_topo;
     }
     ;
 
 loop_prefix:
-    KW_WHILE '(' condicao ')' {
-        ASTNode* node_break = new_node(new_label(), "break", NULL, NULL);
-        ASTNode* node_continue = new_node(new_label(), "continue", NULL, NULL);
+    while_start condicao ')' {
+        char* label_topo = $<str>1; 
+        char* label_fim = new_label();
+        push_loop(label_fim, label_topo);
 
-        $$ = new_node("while", "while", node_break, node_continue);
+        ASTNode* node_break = new_node(label_fim, "break", NULL, NULL, get_scope());
+        ASTNode* node_continue = new_node(label_topo, "continue", NULL, NULL, get_scope());
+
+        $$ = new_node("while", "while", node_break, node_continue, get_scope());
         
         printf("\nAST de Loop:\n");
-        print_ast($3, 0);
+        print_ast($2, 0);
 
-        emit_label(node_continue->value);
-        emit_if_false($3->code, node_break->value);
+        emit_if_false($2->code, node_break->value);
     }
     ;
-
-tipo:
-    TYPE_INT   { $$ = "int"; }
-  | TYPE_FLOAT { $$ = "float"; }
-  | TYPE_CHAR  { $$ = "char"; }
-  | TYPE_LONG  { $$ = "long"; }
-  /* Adicione outros tipos aqui no futuro */
-  ;
 
 statement:
     // --- DECLARAÇÕES ---
@@ -135,14 +171,17 @@ statement:
         }
         add_symbol($1, $2);
 
-        ASTNode* id_node = new_node($2, "identifier", NULL, NULL);
-        ASTNode* root    = new_node("=", "assign", id_node, $4);
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, $4, get_scope());
 
         printf("\nAST da declaração '%s':\n", $2);
         print_ast(root, 0);
         free_ast(root);
 
-        emit($2, $4->code, NULL, NULL);
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", $2, get_scope());
+
+        emit(nome_com_escopo, $4->code, NULL, NULL);
         printf("\n");
     }
 
@@ -157,40 +196,66 @@ statement:
             printf("Erro Semântico: Impossível converter '%s' para '%s'!\n", $3->data_type, sym->type);
             exit(1);
         }
-        ASTNode* id_node = new_node($1, "identifier", NULL, NULL);
-        ASTNode* root    = new_node("=", "assign", id_node, $3);
+        ASTNode* id_node = new_node($1, "identifier", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, $3, get_scope());
 
         printf("\nAST da atribuição '%s':\n", $1);
         print_ast(root, 0);
         free_ast(root);
 
-        emit($1, $3->code, NULL, NULL); 
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", sym->name, sym->scope_level);
+
+        emit(nome_com_escopo, $3->code, NULL, NULL); 
+        printf("\n");
     }
 
-    | if_prefix '{' statements '}' {
-        // IF sem ELSE
+    // --- IF sem ELSE ---
+    | if_prefix block {
         emit_label($1);
     }
 
-    | if_prefix '{' statements '}' KW_ELSE {
-        // IF com ELSE
-        $<str>$ = new_label();
-        emit_goto($<str>$);
+    // --- IF COM ELSE ---
+    | if_prefix block KW_ELSE {
+        // label de FIM para o IF não invadir o ELSE
+        char* label_fim = new_label();
+        emit_goto(label_fim);
         emit_label($1);
-    } '{' statements '}' {
-        emit_label($<str>6);
+
+        $<str>$ = label_fim;
+    } block {
+        emit_label($<str>4);
     }
 
-    | loop_prefix '{' statements '}' {
+    // --- LOOP WHILE E BREAK/CONTINUE ---
+    | loop_prefix block {
         emit_goto($1->right->value);
         emit_label($1->left->value);
+
+        pop_loop();
+    }
+
+    | KW_BREAK SEMICOLON {
+        if (loop_stack_top < 0) {
+            printf("Erro Semântico: 'break' usado fora de um laço de repetição!\n");
+            exit(1);
+        }
+        emit_goto(loop_break_stack[loop_stack_top]); 
+    }
+
+    | KW_CONTINUE SEMICOLON {
+        if (loop_stack_top < 0) {
+            printf("Erro Semântico: 'continue' usado fora de um laço de repetição!\n");
+            exit(1);
+        }
+        emit_goto(loop_continue_stack[loop_stack_top]); 
     }
 
     ;
 
 condicao:
     expr OP_EQ expr {
-        ASTNode* node = new_node("==", "relacional", $1, $3);
+        ASTNode* node = new_node("==", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
         emit(temp, $1->code, "==", $3->code);
         strcpy(node->code, temp);
@@ -198,7 +263,7 @@ condicao:
         $$ = node;
     }
   | expr OP_LT expr {
-        ASTNode* node = new_node("<", "relacional", $1, $3);
+        ASTNode* node = new_node("<", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
         emit(temp, $1->code, "<", $3->code);
         strcpy(node->code, temp);
@@ -206,13 +271,30 @@ condicao:
         $$ = node;
     }
   | expr OP_GT expr {
-        ASTNode* node = new_node(">", "relacional", $1, $3);
+        ASTNode* node = new_node(">", "relacional", $1, $3, get_scope());
         print_ast(node, 0);
-
         char* temp = new_temp();
         emit(temp, $1->code, ">", $3->code);
         strcpy(node->code, temp);
         free(temp);
+        $$ = node;
+    }
+  | expr {
+        // Cria um nó folha para o número "0" para pendurar na AST
+        ASTNode* zero_node = new_node("0", "inteiro", NULL, NULL, get_scope());
+        strcpy(zero_node->code, "0");
+
+        // Cria o nó relacional != seguindo exatamente o seu padrão
+        ASTNode* node = new_node("!=", "relacional", $1, zero_node, get_scope());
+        print_ast(node, 0);
+
+        char* temp = new_temp();
+        // Usa a sua função padrão de emitir (se for emit_binop, basta ajustar o nome)
+        emit(temp, $1->code, "!=", "0"); 
+        
+        strcpy(node->code, temp);
+        free(temp);
+        
         $$ = node;
     }
   ;
@@ -230,9 +312,8 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("+", "op", $1, $3);
+        ASTNode* node = new_node("+", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type); // Propaga o tipo para cima
-        
         char* temp = new_temp();
         emit(temp, $1->code, "+", $3->code);
         strcpy(node->code, temp);
@@ -249,7 +330,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("-", "op", $1, $3);
+        ASTNode* node = new_node("-", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -268,7 +349,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("*", "op", $1, $3);
+        ASTNode* node = new_node("*", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -287,7 +368,7 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node("/", "op", $1, $3);
+        ASTNode* node = new_node("/", "op", $1, $3, get_scope());
         strcpy(node->data_type, $1->data_type);
         
         char* temp = new_temp();
@@ -307,21 +388,23 @@ expr:
             exit(1);
         }
         
-        ASTNode* node = new_node($1, "identifier", NULL, NULL);
+        ASTNode* node = new_node($1, "identifier", NULL, NULL, get_scope());
         strcpy(node->data_type, sym->type); // Pega o tipo ("int") direto da tabela!
-        strcpy(node->code, $1);
+
+        // SALVA O ESCOPO JUNTO AO NOME DO NÓ
+        sprintf(node->code, "%s_%d", sym->name, sym->scope_level);
         $$ = node;
     }
   | NUM {
         char numStr[20];
         sprintf(numStr, "%d", $1);
-        ASTNode* node = new_node(numStr, "literal", NULL, NULL);
+        ASTNode* node = new_node(numStr, "literal", NULL, NULL, get_scope());
         strcpy(node->data_type, "int"); // Literais puros são sempre inteiros
         strcpy(node->code, numStr);
         $$ = node;
     }
   | NUM_FLOAT {
-        ASTNode* node = new_node($1, "literal", NULL, NULL);
+        ASTNode* node = new_node($1, "literal", NULL, NULL, get_scope());
         strcpy(node->data_type, "float"); 
         strcpy(node->code, $1);
         $$ = node;
@@ -332,6 +415,7 @@ expr:
 
 void yyerror(const char *s) {
     fprintf(stderr, "Erro Sintático: %s\n", s);
+    exit(1);
 }
 
 int main(void) {

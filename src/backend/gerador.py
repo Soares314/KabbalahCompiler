@@ -14,23 +14,57 @@ def gerar_assembly_riscv(arquivo_tac, arquivo_saida):
     with open(arquivo_tac, "r") as f:
         linhas = [linha.strip() for linha in f if linha.strip()]
 
-    # --- GERENCIADOR DE REGISTRADORES ---
-    regs_disponiveis = [f"t{i}" for i in range(6)] + [f"a{i}" for i in range(8)]
-    mapa_variaveis = {}
+    # --- SCAN DE VARIÁVEIS (Descobrindo o tamanho da Stack) ---
+    variaveis_unicas = set()
+    for linha in linhas:
+        if match := re_assign.match(linha):
+            variaveis_unicas.add(match.group(1))
+            if not match.group(2).lstrip("-").isnumeric():
+                variaveis_unicas.add(match.group(2))
+        elif match := re_binop.match(linha):
+            variaveis_unicas.add(match.group(1))
+            if not match.group(2).lstrip("-").isnumeric(): variaveis_unicas.add(match.group(2))
+            if not match.group(4).lstrip("-").isnumeric(): variaveis_unicas.add(match.group(4))
+        elif match := re_if.match(linha):
+            variaveis_unicas.add(match.group(1))
 
-    def obter_reg(variavel):
-        """Retorna o registrador associado a uma variável (ou cria um novo)"""
-        if variavel not in mapa_variaveis:
-            reg = regs_disponiveis[len(mapa_variaveis) % len(regs_disponiveis)]
-            mapa_variaveis[variavel] = reg
-        return mapa_variaveis[variavel]
+    # --- (Calculando Offsets) ---
+    tamanho_frame = len(variaveis_unicas) * 4
+    
+    # RISC-V exige que a stack seja alinhada em 16 bytes
+    if tamanho_frame % 16 != 0:
+        tamanho_frame += 16 - (tamanho_frame % 16)
 
+    print(f"[DEBUG] Tamanho do Stack Frame: {tamanho_frame} bytes")
+
+    mapa_stack = {}
+    offset_atual = 0
+    for var in variaveis_unicas:
+        mapa_stack[var] = offset_atual
+        offset_atual += 4
+
+    # --- FUNÇÕES AUXILIARES DE MEMÓRIA ---
+    def carregar_valor(arg, reg_destino):
+        """Se for número, faz um load immediate. Se for variável, busca da stack."""
+        if arg.lstrip("-").isnumeric():
+            return f"    li {reg_destino}, {arg}"
+        else:
+            offset = mapa_stack[arg]
+            return f"    lw {reg_destino}, {offset}(sp)"
+
+    def salvar_valor(var_destino, reg_origem):
+        """Pega o valor do registrador e guarda no espaço da variável na stack."""
+        offset = mapa_stack[var_destino]
+        return f"    sw {reg_origem}, {offset}(sp)"
+
+    # --- GERAÇÃO DE CÓDIGO ---
     codigo_asm = []
 
-    # Cabeçalho padrão RISC-V
+    # Cabeçalho e Stack
     codigo_asm.append(".text")
     codigo_asm.append(".globl main")
     codigo_asm.append("main:")
+    codigo_asm.append(f"    addi sp, sp, -{tamanho_frame}")
 
     for linha in linhas:
         if match := re_label.match(linha):
@@ -42,21 +76,12 @@ def gerar_assembly_riscv(arquivo_tac, arquivo_saida):
         elif match := re_assign.match(linha):
             instrucao = ("ASSIGN", match.group(1), match.group(2))
         elif match := re_binop.match(linha):
-            instrucao = (
-                "BINOP",
-                match.group(1),
-                match.group(2),
-                match.group(3),
-                match.group(4),
-            )
+            instrucao = ("BINOP", match.group(1), match.group(2), match.group(3), match.group(4))
         else:
             continue
-
-        # ========================================================
-        # MATCH-CASE PARA TRADUÇÃO RISC-V
-        # ========================================================
+            
+        # MATCH-CASE PARA TRADUÇÃO RISC-V (Agora baseado em memória!)
         match instrucao:
-
             case ("LABEL", lbl):
                 codigo_asm.append(f"{lbl}:")
 
@@ -64,48 +89,36 @@ def gerar_assembly_riscv(arquivo_tac, arquivo_saida):
                 codigo_asm.append(f"    j {lbl}")
 
             case ("IFFALSE", cond, lbl):
-                reg_cond = obter_reg(cond)
-                codigo_asm.append(f"    beqz {reg_cond}, {lbl}")
+                codigo_asm.append(carregar_valor(cond, "t0"))
+                codigo_asm.append(f"    beqz t0, {lbl}")
 
             case ("ASSIGN", res, arg1):
-                reg_res = obter_reg(res)
-                if arg1.lstrip("-").isnumeric():
-                    codigo_asm.append(f"    li {reg_res}, {arg1}")
-                else:
-                    reg_arg = obter_reg(arg1)
-                    codigo_asm.append(f"    mv {reg_res}, {reg_arg}")
+                codigo_asm.append(carregar_valor(arg1, "t0"))
+                codigo_asm.append(salvar_valor(res, "t0"))
 
             case ("BINOP", res, arg1, op, arg2):
-                reg_res = obter_reg(res)
-
-                reg_arg1 = obter_reg(arg1) if not arg1.lstrip("-").isnumeric() else "t6"
-                if arg1.lstrip("-").isnumeric():
-                    codigo_asm.append(f"    li t6, {arg1}")
-
-                reg_arg2 = obter_reg(arg2) if not arg2.lstrip("-").isnumeric() else "t6"
-                if arg2.lstrip("-").isnumeric():
-                    reg_arg2 = "t6" if not arg1.lstrip("-").isnumeric() else "t5"
-                    codigo_asm.append(f"    li {reg_arg2}, {arg2}")
+                codigo_asm.append(carregar_valor(arg1, "t0"))
+                codigo_asm.append(carregar_valor(arg2, "t1"))
 
                 match op:
-                    case "+":
-                        codigo_asm.append(f"    add {reg_res}, {reg_arg1}, {reg_arg2}")
-                    case "-":
-                        codigo_asm.append(f"    sub {reg_res}, {reg_arg1}, {reg_arg2}")
-                    case "*":
-                        codigo_asm.append(f"    mul {reg_res}, {reg_arg1}, {reg_arg2}")
-                    case "/":
-                        codigo_asm.append(f"    div {reg_res}, {reg_arg1}, {reg_arg2}")
-                    case "<":
-                        codigo_asm.append(f"    slt {reg_res}, {reg_arg1}, {reg_arg2}")
-                    case ">":
-                        codigo_asm.append(f"    slt {reg_res}, {reg_arg2}, {reg_arg1}")
-                    case "==":
-                        codigo_asm.append(f"    sub {reg_res}, {reg_arg1}, {reg_arg2}")
-                        codigo_asm.append(f"    seqz {reg_res}, {reg_res}")
+                    case "+": codigo_asm.append("    add t0, t0, t1")
+                    case "-": codigo_asm.append("    sub t0, t0, t1")
+                    case "*": codigo_asm.append("    mul t0, t0, t1")
+                    case "/": codigo_asm.append("    div t0, t0, t1")
+                    case "<": codigo_asm.append("    slt t0, t0, t1")
+                    case ">": codigo_asm.append("    slt t0, t1, t0")
+                    case "==": 
+                        codigo_asm.append("    sub t0, t0, t1")
+                        codigo_asm.append("    seqz t0, t0")
+                    case "!=":
+                        codigo_asm.append("    sub t0, t0, t1")
+                        codigo_asm.append("    snez t0, t0")
 
-    # Syscall 10 para Sair
+                codigo_asm.append(salvar_valor(res, "t0"))
+
+    # Fim do programa
     codigo_asm.append("\n    # Fim do programa")
+    codigo_asm.append(f"    addi sp, sp, {tamanho_frame}")
     codigo_asm.append("    li a7, 10")
     codigo_asm.append("    ecall")
 

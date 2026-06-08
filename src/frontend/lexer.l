@@ -15,6 +15,8 @@
 "for"     { return KW_FOR; }
 "foreach" { return KW_FOREACH; }
 "while"   { return KW_WHILE; }
+"break"   { return KW_BREAK; }
+"continue"   { return KW_CONTINUE; }
 
     /* Palavras-chave, para tipos */
 "int"     { return TYPE_INT; }
