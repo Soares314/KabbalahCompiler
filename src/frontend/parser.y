@@ -11,6 +11,21 @@ FILE* out_file;
 int yylex(void);
 void yyerror(const char *s);
 
+// --- CONTROLE DE ESCOPO LOOP ---
+char loop_break_stack[20][20];    // Guarda os labels de fim (break)
+char loop_continue_stack[20][20]; // Guarda os labels de topo (continue)
+int loop_stack_top = -1;
+
+void push_loop(char* label_break, char* label_continue) {
+    loop_stack_top++;
+    strcpy(loop_break_stack[loop_stack_top], label_break);
+    strcpy(loop_continue_stack[loop_stack_top], label_continue);
+}
+
+void pop_loop() {
+    loop_stack_top--;
+}
+
 // --- CÓDIGO INTERMEDIÁRIO ---
 int tempCount = 0;
 int labelCount = 0;
@@ -59,6 +74,7 @@ void emit_label(char* label) {
 
 %token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
 %token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH
+%token KW_BREAK KW_CONTINUE
 %token ASSIGN SEMICOLON
 %token OP_EQ OP_LT OP_GT
 
@@ -130,7 +146,8 @@ loop_prefix:
     while_start condicao ')' {
         char* label_topo = $<str>1; 
         char* label_fim = new_label();
-        
+        push_loop(label_fim, label_topo);
+
         ASTNode* node_break = new_node(label_fim, "break", NULL, NULL, get_scope());
         ASTNode* node_continue = new_node(label_topo, "continue", NULL, NULL, get_scope());
 
@@ -210,9 +227,28 @@ statement:
         emit_label($<str>4);
     }
 
+    // --- LOOP WHILE E BREAK/CONTINUE ---
     | loop_prefix block {
         emit_goto($1->right->value);
         emit_label($1->left->value);
+
+        pop_loop();
+    }
+
+    | KW_BREAK SEMICOLON {
+        if (loop_stack_top < 0) {
+            printf("Erro Semântico: 'break' usado fora de um laço de repetição!\n");
+            exit(1);
+        }
+        emit_goto(loop_break_stack[loop_stack_top]); 
+    }
+
+    | KW_CONTINUE SEMICOLON {
+        if (loop_stack_top < 0) {
+            printf("Erro Semântico: 'continue' usado fora de um laço de repetição!\n");
+            exit(1);
+        }
+        emit_goto(loop_continue_stack[loop_stack_top]); 
     }
 
     ;
@@ -241,6 +277,24 @@ condicao:
         emit(temp, $1->code, ">", $3->code);
         strcpy(node->code, temp);
         free(temp);
+        $$ = node;
+    }
+  | expr {
+        // Cria um nó folha para o número "0" para pendurar na AST
+        ASTNode* zero_node = new_node("0", "inteiro", NULL, NULL, get_scope());
+        strcpy(zero_node->code, "0");
+
+        // Cria o nó relacional != seguindo exatamente o seu padrão
+        ASTNode* node = new_node("!=", "relacional", $1, zero_node, get_scope());
+        print_ast(node, 0);
+
+        char* temp = new_temp();
+        // Usa a sua função padrão de emitir (se for emit_binop, basta ajustar o nome)
+        emit(temp, $1->code, "!=", "0"); 
+        
+        strcpy(node->code, temp);
+        free(temp);
+        
         $$ = node;
     }
   ;
@@ -361,6 +415,7 @@ expr:
 
 void yyerror(const char *s) {
     fprintf(stderr, "Erro Sintático: %s\n", s);
+    exit(1);
 }
 
 int main(void) {
