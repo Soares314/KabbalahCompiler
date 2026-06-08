@@ -37,7 +37,7 @@ void emit(char* result, char* op1, char* op, char* op2) {
     }
 }
 
-// Saltos If-ELSE
+// Saltos If-ELSE e While
 void emit_if_false(char* cond, char* label) {
     fprintf(out_file, "ifFalse %s goto %s\n", cond, label);
 }
@@ -58,18 +58,20 @@ void emit_label(char* label) {
 }
 
 %token KW_DEFINE KW_RETURN TYPE_VOID TYPE_INT TYPE_CHAR TYPE_FLOAT TYPE_LONG
-%token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH KW_WHILE
+%token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH
 %token ASSIGN SEMICOLON
 %token OP_EQ OP_LT OP_GT
 
 %token <str> IDENTIFIER
 %token <num> NUM
 %token <str> NUM_FLOAT
+%token <str> KW_WHILE
 
 %type <node> expr
 %type <str> tipo       /* Regra genérica de tipo para declaração */
 %type <node> condicao  /* A condição vai retornar um nó da AST */
 %type <str> if_prefix  /* Vai retornar o Label L1/L2 como string */
+%type <node> loop_prefix
 
 %left '+' '-'
 %left '*' '/'
@@ -112,6 +114,32 @@ if_prefix:
         emit_if_false($3->code, l_false);
         $$ = l_false;
         printf("\n");
+    }
+    ;
+
+// Emite o label Antes da condição
+while_start:
+    KW_WHILE '(' {
+        char* label_topo = new_label();
+        emit_label(label_topo);
+        $<str>$ = label_topo;
+    }
+    ;
+
+loop_prefix:
+    while_start condicao ')' {
+        char* label_topo = $<str>1; 
+        char* label_fim = new_label();
+        
+        ASTNode* node_break = new_node(label_fim, "break", NULL, NULL, get_scope());
+        ASTNode* node_continue = new_node(label_topo, "continue", NULL, NULL, get_scope());
+
+        $$ = new_node("while", "while", node_break, node_continue, get_scope());
+        
+        printf("\nAST de Loop:\n");
+        print_ast($2, 0);
+
+        emit_if_false($2->code, node_break->value);
     }
     ;
 
@@ -182,6 +210,11 @@ statement:
         emit_label($<str>4);
     }
 
+    | loop_prefix block {
+        emit_goto($1->right->value);
+        emit_label($1->left->value);
+    }
+
     ;
 
 condicao:
@@ -203,6 +236,7 @@ condicao:
     }
   | expr OP_GT expr {
         ASTNode* node = new_node(">", "relacional", $1, $3, get_scope());
+        print_ast(node, 0);
         char* temp = new_temp();
         emit(temp, $1->code, ">", $3->code);
         strcpy(node->code, temp);
