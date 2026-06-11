@@ -41,6 +41,21 @@
     return NUM_FLOAT; 
 }
 
+    /* Caracteres: passamos diretamente o valor ASCII dele como inteiro */
+\'[^\'\\]\' { 
+        // Captura caracteres normais ex: 'A', 'x', ' '
+        yylval.num = yytext[1]; 
+        return CHAR_LITERAL; 
+    }
+
+\'\\[nt0]\' {
+        // Captura caracteres de escape especiais ex: '\n', '\t', '\0'
+        if (yytext[2] == 'n') yylval.num = 10;       // ASCII do newline
+        else if (yytext[2] == 't') yylval.num = 9;   // ASCII do tab
+        else if (yytext[2] == '0') yylval.num = 0;   // ASCII do null
+        return CHAR_LITERAL;
+    }
+
     /* Operadores e Pontuação */
 "="   { return ASSIGN; }
 ";"   { return SEMICOLON; }

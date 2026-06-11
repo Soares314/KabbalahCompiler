@@ -80,6 +80,7 @@ void emit_label(char* label) {
 
 %token <str> IDENTIFIER
 %token <num> NUM
+%token <num> CHAR_LITERAL
 %token <str> NUM_FLOAT
 %token <str> KW_WHILE
 
@@ -117,6 +118,61 @@ fecha_escopo: { exit_scope();  } ;
 block:
     '{' abre_escopo statements '}' fecha_escopo
   ;
+
+declaracao:
+      tipo IDENTIFIER ASSIGN expr SEMICOLON {
+        // 1. Checa se já existe (O seu add_symbol já faz isso interno, então perfeito)
+        add_symbol($1, $2);
+
+        if (strcmp($1, $4->data_type) != 0) {
+            printf("Erro Semântico: Tipo '%s' não é compatível com '%s'.\n", $4->data_type, $1);
+            exit(1);
+        }
+
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, $4, get_scope());
+
+        printf("\nAST da inicialização '%s':\n", $2);
+        print_ast(root, 0);
+        free_ast(root);
+
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", $2, get_scope());
+
+        emit(nome_com_escopo, $4->code, NULL, NULL);
+        printf("\n");
+    }
+    | tipo IDENTIFIER SEMICOLON {
+        // 1. Adiciona na tabela primeiro. Se já existir, ele vai travar aqui dizendo o nome certo ('aura')
+        add_symbol($1, $2); 
+
+        char nome_com_escopo[100];
+        sprintf(nome_com_escopo, "%s_%d", $2, get_scope());
+
+        // 2. Inicialização padrão com Zero
+        if (strcmp($1, "char") == 0) {
+            emit(nome_com_escopo, "0", NULL, NULL); 
+        } 
+        else if (strcmp($1, "float") == 0) {
+            emit(nome_com_escopo, "0.0", NULL, NULL); 
+        } 
+        else {
+            emit(nome_com_escopo, "0", NULL, NULL); 
+        }
+
+        // 3. AST da declaração pura (Atenção aqui!)
+        ASTNode* id_node = new_node($2, "identifier", NULL, NULL, get_scope());
+        
+        // Cuidado: Passar NULL no filho da assign pode quebrar o seu print_ast se ele não checar ponteiro nulo!
+        // Como alternativa segura, criamos um nó de constante zero para a AST
+        ASTNode* zero_node = new_node("0", "constant", NULL, NULL, get_scope());
+        ASTNode* root    = new_node("=", "assign", id_node, zero_node, get_scope());
+        
+        printf("\nAST da declaração '%s':\n", $2);
+        print_ast(root, 0);
+        free_ast(root);
+    }
+    ;
 
 /* ----- IF e ELSE ----- */
 if_prefix:
@@ -162,28 +218,7 @@ loop_prefix:
 
 statement:
     // --- DECLARAÇÕES ---
-    tipo IDENTIFIER ASSIGN expr SEMICOLON {
-        // Checa se o tipo da declaração é compatível ao valor passado
-        // TODO: Colocar hierarquia de tipos entre 'int' < 'long'
-        if (strcmp($1, $4->data_type) != 0) {
-            printf("Erro Semântico: Tipo '%s' não é compatível com '%s'.\n", $4->data_type, $1);
-            exit(1);
-        }
-        add_symbol($1, $2);
-
-        ASTNode* id_node = new_node($2, "identifier", NULL, NULL, get_scope());
-        ASTNode* root    = new_node("=", "assign", id_node, $4, get_scope());
-
-        printf("\nAST da declaração '%s':\n", $2);
-        print_ast(root, 0);
-        free_ast(root);
-
-        char nome_com_escopo[100];
-        sprintf(nome_com_escopo, "%s_%d", $2, get_scope());
-
-        emit(nome_com_escopo, $4->code, NULL, NULL);
-        printf("\n");
-    }
+    declaracao
 
     // --- ATRIBUIÇÃO ---
     | IDENTIFIER ASSIGN expr SEMICOLON {
@@ -311,9 +346,16 @@ expr:
             printf("Erro: Operações com float ainda não são suportadas!\n");
             exit(1);
         }
-        
+
         ASTNode* node = new_node("+", "op", $1, $3, get_scope());
-        strcpy(node->data_type, $1->data_type); // Propaga o tipo para cima
+
+        if (strcmp($1->data_type, "char") == 0 && strcmp($3->data_type, "char") == 0) {
+            printf("Nota: Promoção de tipos para 'int' para evitar overflow\n");
+            strcpy(node->data_type, "int"); 
+        } else {
+            strcpy(node->data_type, $1->data_type); 
+        }
+        
         char* temp = new_temp();
         emit(temp, $1->code, "+", $3->code);
         strcpy(node->code, temp);
@@ -329,9 +371,15 @@ expr:
             printf("Erro: Operações com float ainda não são suportadas!\n");
             exit(1);
         }
-        
+
         ASTNode* node = new_node("-", "op", $1, $3, get_scope());
-        strcpy(node->data_type, $1->data_type);
+
+        if (strcmp($1->data_type, "char") == 0 && strcmp($3->data_type, "char") == 0) {
+            printf("Nota: Promoção de tipos para 'int' para evitar overflow\n");
+            strcpy(node->data_type, "int"); 
+        } else {
+            strcpy(node->data_type, $1->data_type); 
+        }
         
         char* temp = new_temp();
         emit(temp, $1->code, "-", $3->code);
@@ -348,15 +396,21 @@ expr:
             printf("Erro: Operações com float ainda não são suportadas!\n");
             exit(1);
         }
-        
+
         ASTNode* node = new_node("*", "op", $1, $3, get_scope());
-        strcpy(node->data_type, $1->data_type);
+
+        if (strcmp($1->data_type, "char") == 0 && strcmp($3->data_type, "char") == 0) {
+            printf("Nota: Promoção de tipos para 'int' para evitar overflow\n");
+            strcpy(node->data_type, "int"); 
+        } else {
+            strcpy(node->data_type, $1->data_type); 
+        }
         
         char* temp = new_temp();
         emit(temp, $1->code, "*", $3->code);
         strcpy(node->code, temp);
         free(temp);
-        $$ = node;
+        $$ = node;   
     }
   | expr '/' expr {
         if (strcmp($1->data_type, $3->data_type) != 0) {
@@ -367,9 +421,15 @@ expr:
             printf("Erro: Operações com float ainda não são suportadas!\n");
             exit(1);
         }
-        
-        ASTNode* node = new_node("/", "op", $1, $3, get_scope());
-        strcpy(node->data_type, $1->data_type);
+
+         ASTNode* node = new_node("/", "op", $1, $3, get_scope());
+
+        if (strcmp($1->data_type, "char") == 0 && strcmp($3->data_type, "char") == 0) {
+            printf("Aviso: Promoção de tipos para 'int' para evitar overflow\n");
+            strcpy(node->data_type, "int"); 
+        } else {
+            strcpy(node->data_type, $1->data_type); 
+        }
         
         char* temp = new_temp();
         emit(temp, $1->code, "/", $3->code);
@@ -389,7 +449,7 @@ expr:
         }
         
         ASTNode* node = new_node($1, "identifier", NULL, NULL, get_scope());
-        strcpy(node->data_type, sym->type); // Pega o tipo ("int") direto da tabela!
+        strcpy(node->data_type, sym->type);
 
         // SALVA O ESCOPO JUNTO AO NOME DO NÓ
         sprintf(node->code, "%s_%d", sym->name, sym->scope_level);
@@ -407,6 +467,15 @@ expr:
         ASTNode* node = new_node($1, "literal", NULL, NULL, get_scope());
         strcpy(node->data_type, "float"); 
         strcpy(node->code, $1);
+        $$ = node;
+    }
+
+  | CHAR_LITERAL {
+        char buffer[20];
+        sprintf(buffer, "%d", $1); 
+        ASTNode* node = new_node(buffer, "literal", NULL, NULL, get_scope());
+        strcpy(node->data_type, "char"); 
+        strcpy(node->code, buffer); 
         $$ = node;
     }
   ;

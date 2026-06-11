@@ -1,0 +1,7 @@
+char code = 'q';
+char aura;
+aura = 'a';
+
+int abc;
+
+abc = abc + 10000;
