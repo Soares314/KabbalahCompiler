@@ -68,8 +68,11 @@
 "{"   { return '{'; }
 "}"   { return '}'; }
 "=="  { return OP_EQ; }
+"!="  { return OP_NEQ; }
 "<"   { return OP_LT; }
+"<="   { return OP_LE; }
 ">"   { return OP_GT; }
+">="   { return OP_GE; }
 
 [ \t\r\n]+  ; 
 "//".* ; 

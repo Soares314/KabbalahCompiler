@@ -76,7 +76,7 @@ void emit_label(char* label) {
 %token KW_SIZEOF KW_IF KW_ELSE KW_FOR KW_FOREACH
 %token KW_BREAK KW_CONTINUE
 %token ASSIGN SEMICOLON
-%token OP_EQ OP_LT OP_GT
+%token OP_EQ OP_LT OP_GT OP_LE OP_GE OP_NEQ
 
 %token <str> IDENTIFIER
 %token <num> NUM
@@ -90,8 +90,14 @@ void emit_label(char* label) {
 %type <str> if_prefix  /* Vai retornar o Label L1/L2 como string */
 %type <node> loop_prefix
 
+// %left OR
+// %left AND
+%left OP_EQ OP_NE
+%left OP_LT OP_GT OP_LE OP_GE
 %left '+' '-'
 %left '*' '/'
+// %right NOT
+%nonassoc UMINUS
 
 %% /* ================= REGRAS ================= */
 
@@ -297,6 +303,14 @@ condicao:
         free(temp);
         $$ = node;
     }
+   | expr OP_NEQ expr {
+        ASTNode* node = new_node("!=", "relacional", $1, $3, get_scope());
+        char* temp = new_temp();
+        emit(temp, $1->code, "!=", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
   | expr OP_LT expr {
         ASTNode* node = new_node("<", "relacional", $1, $3, get_scope());
         char* temp = new_temp();
@@ -310,6 +324,23 @@ condicao:
         print_ast(node, 0);
         char* temp = new_temp();
         emit(temp, $1->code, ">", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr OP_LE expr {
+        ASTNode* node = new_node("<=", "relacional", $1, $3, get_scope());
+        char* temp = new_temp();
+        emit(temp, $1->code, "<=", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | expr OP_GE expr {
+        ASTNode* node = new_node(">=", "relacional", $1, $3, get_scope());
+        print_ast(node, 0);
+        char* temp = new_temp();
+        emit(temp, $1->code, ">=", $3->code);
         strcpy(node->code, temp);
         free(temp);
         $$ = node;
@@ -383,6 +414,17 @@ expr:
         
         char* temp = new_temp();
         emit(temp, $1->code, "-", $3->code);
+        strcpy(node->code, temp);
+        free(temp);
+        $$ = node;
+    }
+  | '-' expr %prec UMINUS {
+        /* --- MENOS UNÁRIO (Negativar um número) --- */
+        ASTNode* node = new_node("-", "unario", $2, NULL, get_scope());
+        strcpy(node->data_type, $2->data_type);
+
+        char* temp = new_temp();
+        emit(temp, "0", "-", $2->code); 
         strcpy(node->code, temp);
         free(temp);
         $$ = node;

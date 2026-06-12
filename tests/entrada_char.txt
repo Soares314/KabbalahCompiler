@@ -1,7 +1,6 @@
-char code = 'q';
-char aura;
-aura = 'a';
+int z = 23;
+z = z;
 
-int abc;
-
-abc = abc + 10000;
+if (z <= -345){
+    int abc = 0;
+}
