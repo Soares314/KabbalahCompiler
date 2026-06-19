@@ -112,7 +112,13 @@ def gerar_assembly_riscv(arquivo_tac, arquivo_saida):
                         codigo_asm.append("    seqz t0, t0")
                     case "!=":
                         codigo_asm.append("    sub t0, t0, t1")
-                        codigo_asm.append("    snez t0, t0")
+                        codigo_asm.append("    sneqz t0, t0")
+                    case "<=":
+                        codigo_asm.append("    slt t0, t1, t0")
+                        codigo_asm.append("    xori t0, t0, 1")
+                    case ">=":
+                        codigo_asm.append("    slt t0, t0, t1")
+                        codigo_asm.append("    xori t0, t0, 1")
 
                 codigo_asm.append(salvar_valor(res, "t0"))
 

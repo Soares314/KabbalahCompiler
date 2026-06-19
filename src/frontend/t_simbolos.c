@@ -41,11 +41,9 @@ void enter_scope() {
 void exit_scope() {
     // Quando saímos de um escopo, todas as variáveis declaradas nele "morrem".
     // Como a tabela preenche do início pro fim, as variáveis mais novas estão no final.
-    // Basta diminuir o symCount até tirar todas as do escopo atual!
     while (symCount > 0 && symTable[symCount - 1].scope_level == current_scope) {
-        symCount--; // "Apaga" a variável simplesmente ignorando ela
+        symCount--;
     }
-    // printf("[DEBUG] Saindo do escopo %d. Símbolos locais não serão apagados ainda.\n", current_scope);
     current_scope--;
     
     printf("Retornando ao escopo de nível [%d]\n", current_scope);
