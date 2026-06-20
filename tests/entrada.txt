@@ -1,0 +1,61 @@
+int controle = 23;
+while (0) {
+    while (0) {
+        int absdsad = 23;
+        int absdsada = 23;
+        int absdsadaa = 23;
+        int absdsadaaa = 23;
+        if (12) {
+            int dsa=12;
+        } else {
+            int ds43=432;
+        }
+        while (23) {
+            int dsjnafd = 2;
+        }
+        while (0) {
+            int absdsad = 23;
+            int absdsada = 23;
+            int absdsadaa = 23;
+            int absdsadaaa = 23;
+            if (12) {
+                int dsa=12;
+            } else {
+                int ds43=432;
+            }
+            while (23) {
+                int dsjnafd = 2;
+            }
+        }
+        while (0) {
+            int absdsad = 23;
+            int absdsada = 23;
+            int absdsadaa = 23;
+            int absdsadaaa = 23;
+            if (12) {
+                int dsa=12;
+            } else {
+                int ds43=432;
+            }
+            while (23) {
+                int dsjnafd = 2;
+            }
+        }
+        while (1) {
+            int absdsad = 23;
+            int absdsada = 23;
+            int absdsadaa = 23;
+            int absdsadaaa = 23;
+            if (12) {
+                int dsa=12;
+            } else {
+                int ds43=432;
+            }
+            while (23) {
+                int dsjnafd = 2;
+            }
+        }
+    }
+}
+
+int tempo = 132;

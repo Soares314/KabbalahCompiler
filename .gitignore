@@ -1,0 +1,4 @@
+build/*
+!build/*.md
+*.tac
+*.s

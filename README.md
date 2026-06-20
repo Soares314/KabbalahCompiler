@@ -22,6 +22,7 @@ O software deve atender aos requisitos de todas as fases cruciais do processo de
 - Lexer: Flex v2.6
 - Parser: Bison v3.8
 - Gerador de código intermediário: gcc v11.4
+- Otimizador: script autoral, em Python v3.10.12
 
 ## 💻 Comandos
 
@@ -53,11 +54,11 @@ cat entrada.txt | ./meu_compilador
 Caso seja necessário, rode os seguintes comandos para deleção dos arquivos intermediários e garantir uma recompilação limpa
 
 ```bash
-rm -f lex.yy.c parser.tab.c meu_compilador
-bison -d parser.y
-flex lexer.l
-gcc parser.tab.c lex.yy.c -o meu_compilador
-./meu_compilador < entrada.txt
+rm -f build/lex.yy.c build/parser.tab.c build/compilador
+bison -d -o build/parser.tab.c src/frontend/parser.y
+flex -o build/lex.yy.c src/frontend/lexer.l
+gcc -I src/frontend src/frontend/ast.c src/frontend/t_simbolos.c build/lex.yy.c build/parser.tab.c -o build/compilador
+./run.sh
 ```
 
 ## 🐋 Para rodar no container
@@ -84,20 +85,46 @@ _Nota: Alguns comandos precisam ser alterados dependendo do sistema operacional 
 
 ## Estrutura de Arquivos
 
-...
+A seguinte estrutura de pastas foi adotada para melhor modularidade do código e legibilidade:
 
-<!-- ```
-/projeto-compilador
-├── /src
-│   ├── lexer.l          # Definições lexicais
-│   ├── parser.y         # Gramática e ações semânticas
-│   └── main.c           # Entrada do programa
-├── /tests
-│   └── entrada.txt      # Arquivo de teste de exemplo
-├── Makefile             # Script de automação de build
+```
+meu-compilador/
+├── src/                    # Código-fonte do projeto
+│   ├── frontend/           # Parte em C (Flex e Bison)
+│   │   ├── lexer.l         # Arquivo do Flex
+│   │   ├── parser.y        # Arquivo do Bison
+│   │   |── ast.h / ast.c   # Definição da AST
+│   │   └── t_simbolos.h / t_simbolos.c   # Definição da tabela de símbolos
+│   │
+│   └── backend/            # Parte em Python
+│       ├── main_backend.py # Script principal do backend
+│       ├── optimizer.py    # Otimização do código
+│       └── codegen.py      # Gerador de código Assembly
+│
+├── tests/                  # Entradas de teste do compilador
+│   ├── entrada.txt
+│   └── entrada_if.txt
+│
+├── build/                  # Arquivos gerados automaticamente pelo build
+│   ├── lex.yy.c
+│   ├── parser.tab.c
+│   ├── parser.tab.h
+│   ├── compilador.exe      
+│   └── saida.asm           
+│
+├── run.sh                 
 └── README.md
-``` -->
-
+```
 ___
+<!-- Atualmente, o compilador suporta apenas atribuições simples e operações aritméticas básicas de inteiros. -->
 
-Atualmente, o compilador suporta apenas atribuições simples e operações aritméticas básicas de inteiros.
+## Possíveis Problemas
+
+Sem permissão para executar <code>run.sh</code>
+
+```
+sudo chmod +x ./run.sh
+```
+
+Erro ao executar o <code>run.sh</code>: Se estiver usando o VSCode, no canto inferior direito, altere o método de fim de linha de CLRF para somente LF (Linux não reconhece CRLF, e esse arquivo é específico para sistemas Linux)
+

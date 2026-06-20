@@ -1,0 +1,13 @@
+int x = 2;
+if (x > 5) {
+    int y = 10;
+} else {
+    int y = 2;
+    y = y + x;
+}
+int y = 23;
+
+int abc = 10;
+if (abc < 20) {
+    int abc = 0;
+}

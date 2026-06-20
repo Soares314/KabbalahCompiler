@@ -1,0 +1,20 @@
+int r = 5;
+
+// Testando se 
+while(r > 1){
+    int abc = 12;
+    int abcd = 12;
+    int abcde = 12;
+    int abcdef = 12;
+    int abcdefg = 12;
+    int abcdefgh = 12;
+    int abcdefghi = 12;
+    if (r == 2) {
+        break;
+        abc = 2;
+        while (r == 2) {
+            abc = abc + 1;
+        }
+    }
+    r = r - 1;
+}
